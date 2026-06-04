@@ -79,6 +79,8 @@ class ChunkBBacktestConfig:
     htf_flat_quantile: float = 0.25
     exit_after_volume_bars: int | None = None
     use_regime_gate_volume_bar: bool = False
+    use_footprint_confluence: bool = False
+    footprint_require_stacked: bool = False
 
 
 @dataclass(frozen=True)

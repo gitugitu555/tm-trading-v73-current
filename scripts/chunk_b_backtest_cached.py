@@ -23,7 +23,10 @@ from prime.phase5_chunkb import AlphaPermissionEngineChunkB
 from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
 from prime.contracts import DataQualitySnapshot
 from prime.volume_bars import VolumeBar
+from prime.footprint_confluence import footprint_confirms_fade
 from prime.volume_bar_cvd import htf_change_at, htf_flat_abs_threshold, volume_bar_cvd_signal
+from research.manifests import append_manifest_jsonl, wrap_result_payload
+from research.signal_scorecard import SignalEvent, SignalScorecard
 from prime.auction_state import AuctionStateEngine
 from storage.hot_path import assert_nvme_archive, assert_nvme_path, hot_btcusdt_aggtrades_dir
 
@@ -86,6 +89,19 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Gate volume_bar_cvd to RANGING/UNKNOWN regimes (mean-reversion eligibility)",
+    )
+    parser.add_argument(
+        "--use-footprint-confluence",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Require cached footprint_bias to align with fade side",
+    )
+    parser.add_argument("--signal-horizon-bars", type=int, default=5)
+    parser.add_argument(
+        "--manifest-jsonl",
+        type=Path,
+        default=Path("results/manifest.jsonl"),
+        help="Append experiment/result manifest records",
     )
     return parser.parse_args()
 
@@ -177,6 +193,8 @@ def main() -> int:
         use_auction_state_gate=args.use_auction_state_gate,
         exit_after_volume_bars=args.exit_after_volume_bars,
         use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
+        use_footprint_confluence=args.use_footprint_confluence,
+        footprint_require_stacked=False,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
@@ -230,12 +248,17 @@ def main() -> int:
     cvd_confirm_count = 0
     cvd_prev_5m = 0.0
 
+    horizon_bars = args.exit_after_volume_bars or args.signal_horizon_bars
+    signal_scorecard = SignalScorecard(horizon_bars=horizon_bars)
+    bar_closes = df["close"].astype(float).tolist()
+
     print(f"Running backtest over cached bars...")
     rows_seen = 0
     signals_seen = 0
 
     for row in df.itertuples():
         rows_seen += 1
+        bar_index = rows_seen - 1
         ts = int(row.end_ts_ns)
         close = float(row.close)
         high = float(row.high)
@@ -453,7 +476,11 @@ def main() -> int:
             elif config.divergence_type == "volume_bar_cvd":
                 assert bars is not None
                 assert htf_changes_history is not None
-                if not config.use_regime_gate_volume_bar or classifier.gate_for_signal_mode(
+                if config.use_regime_gate_volume_bar and not classifier.gate_for_signal_mode(
+                    regime, "divergence"
+                ):
+                    signal_scorecard.record_drop("regime_gate")
+                elif not config.use_regime_gate_volume_bar or classifier.gate_for_signal_mode(
                     regime, "divergence"
                 ):
                     flat_abs = htf_flat_abs_threshold(
@@ -469,6 +496,15 @@ def main() -> int:
                         price=close,
                         invert_signal_side=config.invert_signal_side,
                     )
+                    if signal is not None and config.use_footprint_confluence:
+                        if not footprint_confirms_fade(
+                            trade_side=int(signal["side"]),
+                            footprint_bias=int(row.footprint_bias),
+                            footprint_stacked=bool(row.footprint_stacked),
+                            require_stacked=config.footprint_require_stacked,
+                        ):
+                            signal_scorecard.record_drop("footprint_confluence")
+                            signal = None
             else:
                 # Opposite delta divergence logic
                 if classifier.gate_for_signal_mode(regime, "divergence"):
@@ -546,7 +582,18 @@ def main() -> int:
             continue
 
         signals_seen += 1
-        
+        if signal is not None:
+            signal_scorecard.add(
+                SignalEvent(
+                    bar_index=bar_index,
+                    timestamp_ns=ts,
+                    side=int(signal["side"]),
+                    entry_price=close,
+                    signal_id=signal["id"],
+                    permission_verdict="PENDING",
+                )
+            )
+
         # Evaluate permission
         permission = permission_engine.evaluate(
             signal_id=signal["id"],
@@ -568,6 +615,7 @@ def main() -> int:
         )
         permission_counts[permission.verdict] = permission_counts.get(permission.verdict, 0) + 1
         if permission.verdict not in {"APPROVE", "REDUCED"}:
+            signal_scorecard.record_drop(f"permission_{permission.verdict}")
             continue
 
         bps = config.slippage_bps_per_side / 10_000
@@ -631,16 +679,43 @@ def main() -> int:
                 handle.write(json.dumps(asdict(trade), sort_keys=True))
                 handle.write("\n")
 
+    report_dict = asdict(report)
+    signal_only = signal_scorecard.finalize(bar_closes)
+    report_dict["signal_scorecard"] = signal_only
+    report_dict["trade_scorecard"] = {
+        "trades": report.trades,
+        "win_rate": report.win_rate,
+        "total_pnl": report.total_pnl,
+        "sharpe": report.sharpe,
+    }
+
     payload = {
         "chunk": "B_CACHED",
         "archive": args.archive,
+        "strategy": config.divergence_type if config.signal_mode == "divergence" else config.signal_mode,
         "signal_mode": args.signal_mode,
         "start_date": args.start_date,
         "end_date": args.end_date,
-        "report": asdict(report),
+        "report": report_dict,
         "trade_count": len(trades),
         "sample_trades": [asdict(trade) for trade in trades[:5]],
     }
+    command = " ".join(sys.argv)
+    experiment_id = f"{args.archive}:{config.signal_mode}:{config.divergence_type}"
+    payload = wrap_result_payload(
+        payload,
+        experiment_id=experiment_id,
+        command=command,
+        output_path=args.manifest_jsonl,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+    append_manifest_jsonl(
+        args.manifest_jsonl,
+        {
+            "experiment_manifest": payload["experiment_manifest"],
+            "result_manifest": payload["result_manifest"],
+        },
+    )
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if report.dsr_passed else 1
 

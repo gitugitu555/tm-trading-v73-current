@@ -1,4 +1,8 @@
-"""Pure deterministic feature engines."""
+"""Pure deterministic feature engines.
+
+Canonical hot-path engines live in ``prime/``; use ``features.prime_adapters`` when
+importing CVD/footprint from legacy paths during consolidation.
+"""
 
 from .absorption import AbsorptionEngine
 from .cvd import CVDEngine

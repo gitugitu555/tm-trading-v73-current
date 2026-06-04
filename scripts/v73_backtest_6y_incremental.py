@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--use-regime-gate-volume-bar", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--stop-pct", type=float, default=STOP_PCT)
     p.add_argument("--target-pct", type=float, default=TARGET_PCT)
+    p.add_argument("--use-footprint-confluence", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--resume", action="store_true")
     p.add_argument("--starting-equity", type=float, default=None)
     return p.parse_args()
@@ -90,6 +91,7 @@ def run_archive_backtest(
     starting_equity: float,
     use_auction_state_gate: bool,
     use_regime_gate_volume_bar: bool,
+    use_footprint_confluence: bool,
     stop_pct: float,
     target_pct: float,
     trades_out: Path,
@@ -117,6 +119,7 @@ def run_archive_backtest(
         "--target-pct",
         str(target_pct),
         "--use-regime-gate-volume-bar" if use_regime_gate_volume_bar else "--no-use-regime-gate-volume-bar",
+        "--use-footprint-confluence" if use_footprint_confluence else "--no-use-footprint-confluence",
         "--starting-equity",
         str(starting_equity),
         "--trades-out",
@@ -150,6 +153,14 @@ def load_trades(path: Path) -> list[dict]:
 def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
     rows_seen = sum(r["report"]["rows_seen"] for r in archive_reports)
     signals_seen = sum(r["report"]["signals_seen"] for r in archive_reports)
+    signal_hits = 0
+    signal_scored = 0
+    for item in archive_reports:
+        card = item["report"].get("signal_scorecard", {})
+        scored = int(card.get("scored_events", 0))
+        if scored:
+            signal_hits += int(round(float(card.get("hit_rate", 0.0)) * scored))
+            signal_scored += scored
     regime_counts: Counter[str] = Counter()
     permission_counts: Counter[str] = Counter()
     exit_reasons: Counter[str] = Counter()
@@ -194,6 +205,15 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
         "exit_reasons": dict(sorted(exit_reasons.items())),
         "permission_counts": dict(sorted(permission_counts.items())),
         "archives_processed": len(archive_reports),
+        "signal_scorecard_aggregate": {
+            "scored_events": signal_scored,
+            "hit_rate": round(signal_hits / signal_scored, 6) if signal_scored else 0.0,
+        },
+        "trade_scorecard": {
+            "trades": len(all_trades),
+            "win_rate": round(wins / len(all_trades), 4) if all_trades else 0.0,
+            "total_pnl": round(sum(pnls), 2),
+        },
     }
 
 
@@ -247,6 +267,7 @@ def main() -> int:
             starting_equity=equity,
             use_auction_state_gate=args.use_auction_state_gate,
             use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
+            use_footprint_confluence=args.use_footprint_confluence,
             stop_pct=args.stop_pct,
             target_pct=args.target_pct,
             trades_out=trades_path,
@@ -283,6 +304,7 @@ def main() -> int:
         "exit_after_volume_bars": args.exit_after_volume_bars,
         "use_auction_state_gate": args.use_auction_state_gate,
         "use_regime_gate_volume_bar": args.use_regime_gate_volume_bar,
+        "use_footprint_confluence": args.use_footprint_confluence,
         "stop_pct": args.stop_pct,
         "target_pct": args.target_pct,
         "command": "scripts/v73_backtest_6y_incremental.py",

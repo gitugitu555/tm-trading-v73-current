@@ -50,16 +50,18 @@ Pending:
 
 - D5 delta-reversal entry
 
-### Stage 3 — Filters & scorecards
+### Stage 3 — Filters & scorecards (checkpoint `stage-3-scorecards`) ✅
 
-- Signal-only `SignalScorecard` separate from trade PnL
-- `ExperimentManifest` on every sweep
-- Footprint F3/F5 confluence filters
+- [x] `research/signal_scorecard.py` — hit_rate / mean_sfr / IC proxy on bar horizon
+- [x] `research/manifests.py` — experiment + result manifests, `results/manifest.jsonl`
+- [x] Chunk B reports `signal_scorecard` + `trade_scorecard` separately
+- [x] `prime/footprint_confluence.py` + `--use-footprint-confluence` (on in v73 6y runner)
+- [x] v73 merge aggregates signal-only hit rate across archives
 
-### Stage 4 — Consolidation
+### Stage 4 — Consolidation (checkpoint `stage-4-consolidation`) ✅
 
-- `features/` thin adapters over `prime/`
-- CI installs full `pyproject.toml` deps
+- [x] `features/prime_adapters.py` — canonical CVD/footprint re-exports from `prime`
+- [x] CI: `pip install -e .` instead of pyarrow-only
 
 ## Research synthesis (sub-agents)
 
