@@ -96,3 +96,4 @@ The Gold Master build is compressed into three phases in
 - Phase 1: deterministic market physics MVP
 - Phase 2: research store, risk, and paper execution
 - Phase 3: memory, orchestration, UI, and ML candidate
+Research outputs and findings live in the separate repo: https://github.com/gitugitu555/tm-trading-research (and local /home/tokio/tm-trading-research)
