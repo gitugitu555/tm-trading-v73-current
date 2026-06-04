@@ -37,7 +37,8 @@ Pilot (0–24) still building **2021-04** parquet (shared with Codex v555 moment
 
 ## Background jobs
 
-- `v73_backtest_6y_pilot.log` — archives 0–24
+- `logs/v73_backtest_6y_full.log` — **resumed** `e3026bb`: scan from index 0, skip existing reports, fill gaps (2021-04, 2021-05-01..04), wait on shared NVMe cache
+- `v73_backtest_6y_pilot.log` — archives 0–24 (superseded)
 - `v73_backtest_6y_full.log` — archives 25+ (`--resume`)
 
 ## Commands
