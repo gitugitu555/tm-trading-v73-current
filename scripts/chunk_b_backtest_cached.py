@@ -24,7 +24,12 @@ from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_rati
 from prime.contracts import DataQualitySnapshot
 from prime.volume_bars import VolumeBar
 from prime.footprint_confluence import footprint_confirms_fade
-from prime.volume_bar_cvd import htf_change_at, htf_flat_abs_threshold, volume_bar_cvd_signal
+from prime.volume_bar_cvd import (
+    htf_change_at,
+    htf_flat_abs_threshold,
+    volume_bar_cvd_signal,
+    volume_bar_cvd_signal_d5,
+)
 from research.manifests import append_manifest_jsonl, wrap_result_payload
 from research.signal_scorecard import SignalEvent, SignalScorecard
 from prime.auction_state import AuctionStateEngine
@@ -97,6 +102,12 @@ def parse_args() -> argparse.Namespace:
         help="Require cached footprint_bias to align with fade side",
     )
     parser.add_argument("--signal-horizon-bars", type=int, default=5)
+    parser.add_argument(
+        "--use-delta-rev-2-entry",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="D5 entry: wait 2 bar deltas confirm fade after divergence",
+    )
     parser.add_argument(
         "--manifest-jsonl",
         type=Path,
@@ -195,6 +206,7 @@ def main() -> int:
         use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
         use_footprint_confluence=args.use_footprint_confluence,
         footprint_require_stacked=False,
+        use_delta_rev_2_entry=args.use_delta_rev_2_entry,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
@@ -487,15 +499,26 @@ def main() -> int:
                         htf_changes_history,
                         quantile=config.htf_flat_quantile,
                     )
-                    signal = volume_bar_cvd_signal(
-                        bars,
-                        lookback_bars=config.divergence_lookback_bars,
-                        htf_change=htf_change,
-                        flat_abs=flat_abs,
-                        timestamp_ns=ts,
-                        price=close,
-                        invert_signal_side=config.invert_signal_side,
-                    )
+                    if config.use_delta_rev_2_entry:
+                        signal = volume_bar_cvd_signal_d5(
+                            bars,
+                            lookback_bars=config.divergence_lookback_bars,
+                            htf_change=htf_change,
+                            flat_abs=flat_abs,
+                            timestamp_ns=ts,
+                            price=close,
+                            invert_signal_side=config.invert_signal_side,
+                        )
+                    else:
+                        signal = volume_bar_cvd_signal(
+                            bars,
+                            lookback_bars=config.divergence_lookback_bars,
+                            htf_change=htf_change,
+                            flat_abs=flat_abs,
+                            timestamp_ns=ts,
+                            price=close,
+                            invert_signal_side=config.invert_signal_side,
+                        )
                     if signal is not None and config.use_footprint_confluence:
                         if not footprint_confirms_fade(
                             trade_side=int(signal["side"]),

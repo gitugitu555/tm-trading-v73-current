@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from prime.volume_bar_cvd import htf_flat_abs_threshold, volume_bar_cvd_signal
+from prime.volume_bar_cvd import (
+    htf_flat_abs_threshold,
+    volume_bar_cvd_signal,
+    volume_bar_cvd_signal_d5,
+)
 from prime.volume_bars import VolumeBar
 
 
@@ -63,6 +67,41 @@ class VolumeBarCVDEngineTests(unittest.TestCase):
             price=104.5,
         )
         self.assertIsNone(signal)
+
+
+    def test_d5_requires_delta_reversal(self) -> None:
+        bars = []
+        for i in range(1, 45):
+            delta = -5.0 if i >= 42 else 5.0
+            bars.append(
+                _bar(
+                    i,
+                    high=100.0 + i * 0.01,
+                    low=99.0 + i * 0.01,
+                    cvd=float(i) if i < 42 else 10.0,
+                )
+            )
+        bars[-1] = _bar(45, high=105.0, low=104.0, cvd=8.0)
+        bars[-2] = _bar(44, high=104.5, low=103.5, cvd=9.0)
+        bars[-3] = _bar(43, high=104.0, low=103.0, cvd=10.0)
+        flat_abs = 100.0
+        d4 = volume_bar_cvd_signal(
+            bars,
+            lookback_bars=40,
+            htf_change=0.0,
+            flat_abs=flat_abs,
+            timestamp_ns=45,
+            price=104.5,
+        )
+        d5 = volume_bar_cvd_signal_d5(
+            bars,
+            lookback_bars=40,
+            htf_change=0.0,
+            flat_abs=flat_abs,
+            timestamp_ns=45,
+            price=104.5,
+        )
+        self.assertIsNotNone(d4 or d5)
 
 
 if __name__ == "__main__":

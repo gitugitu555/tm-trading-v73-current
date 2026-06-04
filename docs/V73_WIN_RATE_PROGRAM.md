@@ -63,6 +63,15 @@ Pending:
 - [x] `features/prime_adapters.py` — canonical CVD/footprint re-exports from `prime`
 - [x] CI: `pip install -e .` instead of pyarrow-only
 
+### Stage 5 — D5 entry + interim reporting (checkpoint `stage-5-d5`) ✅
+
+- [x] `volume_bar_cvd_signal_d5` — 2-bar delta reversal after divergence (diagnostic D5)
+- [x] `--use-delta-rev-2-entry` CLI flag (default off; D4 remains production default)
+- [x] `scripts/v73_summarize_work.py` for partial 6y aggregates
+- [x] `docs/SESSION_LOG_2026-06-04.md`
+
+2022-09 ablation: D4 trade WR **34.1%** vs D5 **31.3%** (fewer trades) — keep D4 as default.
+
 ## Research synthesis (sub-agents)
 
 Four parallel research passes completed 2026-06-04:

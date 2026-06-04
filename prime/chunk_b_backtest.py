@@ -27,6 +27,7 @@ from prime.volume_bar_cvd import (
     htf_change_at,
     htf_flat_abs_threshold,
     volume_bar_cvd_signal,
+    volume_bar_cvd_signal_d5,
 )
 
 
@@ -81,6 +82,7 @@ class ChunkBBacktestConfig:
     use_regime_gate_volume_bar: bool = False
     use_footprint_confluence: bool = False
     footprint_require_stacked: bool = False
+    use_delta_rev_2_entry: bool = False
 
 
 @dataclass(frozen=True)
@@ -399,6 +401,16 @@ class ChunkBBacktester:
             self._htf_changes_history,
             quantile=self.config.htf_flat_quantile,
         )
+        if self.config.use_delta_rev_2_entry:
+            return volume_bar_cvd_signal_d5(
+                self._bars,
+                lookback_bars=self.config.divergence_lookback_bars,
+                htf_change=htf_change,
+                flat_abs=flat_abs,
+                timestamp_ns=timestamp_ns,
+                price=price,
+                invert_signal_side=self.config.invert_signal_side,
+            )
         return volume_bar_cvd_signal(
             self._bars,
             lookback_bars=self.config.divergence_lookback_bars,
