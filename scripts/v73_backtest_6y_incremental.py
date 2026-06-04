@@ -242,8 +242,7 @@ def main() -> int:
         if progress_file.is_file():
             prog = json.loads(progress_file.read_text(encoding="utf-8"))
             equity = float(prog.get("equity", equity))
-            if start_index == 0:
-                start_index = int(prog.get("index", -1)) + 1
+            # Start from 0; per-archive skip when *.report.json already exists.
             for trades_file in sorted(WORK_DIR.glob("*.trades.jsonl")):
                 all_trades.extend(load_trades(trades_file))
 
@@ -255,6 +254,13 @@ def main() -> int:
     )
 
     for idx, archive in enumerate(slice_archives):
+        global_index = start_index + idx
+        report_file = WORK_DIR / f"{archive.name}.report.json"
+        if args.resume and report_file.is_file():
+            print(f"[skip] {archive.name} (report exists)", flush=True)
+            payload = json.loads(report_file.read_text(encoding="utf-8"))
+            equity = float(payload["report"]["ending_equity"])
+            continue
         print(f"[{idx + 1}/{len(slice_archives)}] {archive.name}", flush=True)
         ensure_cache(archive, args.threshold_btc, dest)
         trades_path = WORK_DIR / f"{archive.name}.trades.jsonl"
@@ -285,6 +291,7 @@ def main() -> int:
                 {
                     "last_archive": archive.name,
                     "index": idx,
+                    "global_index": global_index,
                     "equity": equity,
                     "trades_total": len(all_trades),
                 },
@@ -293,7 +300,11 @@ def main() -> int:
             encoding="utf-8",
         )
 
-    merged = merge_reports(archive_reports, all_trades)
+    all_report_payloads = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(WORK_DIR.glob("*.report.json"))
+    ]
+    merged = merge_reports(all_report_payloads, all_trades)
     envelope = {
         "version": "7.3.0",
         "strategy": "volume_bar_cvd",
