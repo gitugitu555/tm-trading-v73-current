@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -51,8 +52,26 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+_DAILY_ARCHIVE = re.compile(r"BTCUSDT-aggTrades-\d{4}-\d{2}-\d{2}\.zip$")
+_MONTHLY_ARCHIVE = re.compile(r"BTCUSDT-aggTrades-\d{4}-\d{2}\.zip$")
+
+
 def archives(dest: Path) -> list[Path]:
-    return sorted(a for a in dest.glob("BTCUSDT-aggTrades-*.zip") if "_1m" not in a.name)
+    """Binance ships monthly rollups plus daily files; skip monthlies when dailies exist."""
+    all_a = sorted(a for a in dest.glob("BTCUSDT-aggTrades-*.zip") if "_1m" not in a.name)
+    months_with_daily = {
+        m.group(1)
+        for a in all_a
+        if (m := re.match(r"BTCUSDT-aggTrades-(\d{4}-\d{2})-\d{2}\.zip", a.name))
+    }
+    out: list[Path] = []
+    for a in all_a:
+        if _MONTHLY_ARCHIVE.match(a.name):
+            month_key = a.name.replace("BTCUSDT-aggTrades-", "").replace(".zip", "")
+            if month_key in months_with_daily:
+                continue
+        out.append(a)
+    return out
 
 
 def cache_path(archive: Path, threshold: float) -> Path:
