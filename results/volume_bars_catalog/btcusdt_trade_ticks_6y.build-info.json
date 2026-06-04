@@ -1,0 +1,17 @@
+{
+  "bar_counts": {
+    "300.0": 14282
+  },
+  "build_tool": "scripts/build_volume_bars_from_catalog.py",
+  "cache_version": 2,
+  "catalog_name": "btcusdt_trade_ticks_6y",
+  "finished_at": "2026-06-04T15:27:12.541702+00:00",
+  "instrument": "BTCUSDT.BINANCE",
+  "rows_seen": 49838305,
+  "source_catalog": "/home/tokio/tm-trading-v73-current/data/nautilus/catalogs/btcusdt_trade_ticks_6y",
+  "started_at": "2026-06-04T15:25:14.750408+00:00",
+  "thresholds": [
+    300.0
+  ],
+  "volume_bar_sampler": "prime.volume_bars.VolumeBarSampler"
+}
