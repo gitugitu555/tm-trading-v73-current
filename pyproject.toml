@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tm-trading-v73-current"
+version = "7.3.0"
+description = "TM Trading v7.3 — win-rate improvement fork focused on volume-bar CVD edge alignment."
+requires-python = ">=3.11"
+dependencies = [
+    "nautilus_trader>=1.227.0",
+    "numpy>=2.4.6",
+    "pandas>=2.3.3",
+    "pyarrow>=24.0.0",
+    "scipy>=1.17.1",
+]
+
+[tool.setuptools]
+packages = [
+    "v72",
+    "v72.stages",
+    "v72.nautilus",
+    "core",
+    "data",
+    "data.quality",
+    "data.replay",
+    "execution",
+    "features",
+    "memory",
+    "orchestration",
+    "prime",
+    "research",
+    "risk",
+    "storage",
+    "strategy",
+    "ui",
+    "ui.api",
+    "ui.frontend",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
