@@ -24,7 +24,7 @@ THRESHOLD = 300.0
 LOOKBACK = 40
 EXIT_BARS = 5
 STOP_PCT = 0.0045
-TARGET_PCT = 0.0025
+TARGET_PCT = 0.0015
 
 
 def parse_args() -> argparse.Namespace:
