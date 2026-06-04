@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,6 +64,17 @@ def ensure_cache(archive: Path, threshold: float, dest: Path) -> None:
     target = cache_path(archive, threshold)
     if target.is_file():
         return
+    # Shared NVMe cache: another job (e.g. v555 Codex) may be building this archive.
+    for attempt in range(720):
+        if target.is_file():
+            if attempt:
+                print(f"[cache-ready] {archive.name}", flush=True)
+            return
+        if attempt == 0:
+            print(f"[cache-wait] {archive.name} (shared NVMe)", flush=True)
+        elif attempt % 10 == 0:
+            print(f"[cache-wait] {archive.name} … {attempt}m", flush=True)
+        time.sleep(60)
     print(f"[cache] {archive.name} (NVMe)", flush=True)
     subprocess.run(
         [
@@ -224,6 +236,18 @@ def git_commit() -> str:
         return "unknown"
 
 
+def equity_through_last_report(all_archives: list[Path], work_dir: Path) -> float:
+    """Chain ending_equity through consecutive reports from archive 0."""
+    equity = 100_000.0
+    for archive in all_archives:
+        report_file = work_dir / f"{archive.name}.report.json"
+        if not report_file.is_file():
+            break
+        payload = json.loads(report_file.read_text(encoding="utf-8"))
+        equity = float(payload["report"]["ending_equity"])
+    return equity
+
+
 def main() -> int:
     args = parse_args()
     WORK_DIR.mkdir(parents=True, exist_ok=True)
@@ -238,13 +262,10 @@ def main() -> int:
     archive_reports: list[dict] = []
 
     if args.resume:
-        progress_file = WORK_DIR / "progress.json"
-        if progress_file.is_file():
-            prog = json.loads(progress_file.read_text(encoding="utf-8"))
-            equity = float(prog.get("equity", equity))
-            # Start from 0; per-archive skip when *.report.json already exists.
-            for trades_file in sorted(WORK_DIR.glob("*.trades.jsonl")):
-                all_trades.extend(load_trades(trades_file))
+        # Always scan from archive 0; skip months that already have *.report.json.
+        equity = equity_through_last_report(all_archives, WORK_DIR)
+        for trades_file in sorted(WORK_DIR.glob("*.trades.jsonl")):
+            all_trades.extend(load_trades(trades_file))
 
     slice_archives = all_archives[start_index:end]
     print(
