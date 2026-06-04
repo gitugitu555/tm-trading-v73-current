@@ -78,6 +78,7 @@ class ChunkBBacktestConfig:
     divergence_lookback_bars: int = 40
     htf_flat_quantile: float = 0.25
     exit_after_volume_bars: int | None = None
+    use_regime_gate_volume_bar: bool = False
 
 
 @dataclass(frozen=True)
@@ -269,6 +270,7 @@ class ChunkBBacktester:
                     else None
                 ),
                 auction_state=auction_state,
+                divergence_type=self.config.divergence_type,
             )
             permission_counts[permission.verdict] += 1
             if permission.verdict not in {"APPROVE", "REDUCED"}:
@@ -384,6 +386,10 @@ class ChunkBBacktester:
         is_bar_boundary: bool,
     ) -> dict | None:
         if not is_bar_boundary:
+            return None
+        if self.config.use_regime_gate_volume_bar and not self._regime.gate_for_signal_mode(
+            regime, "divergence"
+        ):
             return None
         current_bar = self._bars[-1]
         htf_change = htf_change_at(self._bars, current_bar.end_ts_ns, current_bar.cumulative_delta)

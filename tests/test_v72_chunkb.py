@@ -160,6 +160,54 @@ class V72ChunkBTest(unittest.TestCase):
 
         self.assertIn("AUCTION_TRENDING_OPTIN_OFF", [record.code for record in permission.chain])
 
+    def test_alpha_permission_fade_path_penalizes_trending_auction(self):
+        regime = HardRegimeClassifier().classify(
+            timestamp_ns=1,
+            price_change_5m_pct=0.003,
+            cvd_session=120.0,
+        )
+        quality = DataQualitySnapshot("CLEAN", 0.0, 0.0, 0, False, 0.0, 1.0, [])
+        auction = AuctionStateEngine(hysteresis_bars=1).update(
+            timestamp_ns=1,
+            price_change_5m_pct=0.0032,
+            cvd_session=120.0,
+            value_acceptance=True,
+        )
+        fade = AlphaPermissionEngineChunkB(
+            kq_approve=0.0,
+            use_auction_state_gate=True,
+        ).evaluate(
+            signal_id="fade",
+            timestamp_ns=1,
+            trade_side=-1,
+            raw_strength=1.0,
+            quality_snapshot=quality,
+            regime=regime,
+            cvd_divergence=False,
+            cvd_5m=50.0,
+            signal_mode="divergence",
+            divergence_type="volume_bar_cvd",
+            auction_state=auction,
+        )
+        mom = AlphaPermissionEngineChunkB(
+            kq_approve=0.0,
+            use_auction_state_gate=True,
+        ).evaluate(
+            signal_id="mom",
+            timestamp_ns=1,
+            trade_side=1,
+            raw_strength=1.0,
+            quality_snapshot=quality,
+            regime=regime,
+            cvd_divergence=False,
+            cvd_5m=50.0,
+            signal_mode="momentum",
+            auction_state=auction,
+        )
+        fade_mult = next(r.multiplier for r in fade.chain if r.code == "AUCTION_TRENDING")
+        mom_mult = next(r.multiplier for r in mom.chain if r.code == "AUCTION_TRENDING")
+        self.assertLess(fade_mult, mom_mult)
+
     def test_alpha_permission_chunkb_auction_state_opt_in_adjusts_kq(self):
         regime = HardRegimeClassifier().classify(
             timestamp_ns=1,

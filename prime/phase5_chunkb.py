@@ -70,6 +70,7 @@ class AlphaPermissionEngineChunkB:
         signal_mode: str = "momentum",
         vwap_deviation: float | None = None,
         auction_state: AuctionStateSnapshot | None = None,
+        divergence_type: str = "opposite_delta",
     ) -> AlphaPermission:
         chain: list[MultiplierRecord] = []
         blocking: list[str] = []
@@ -100,16 +101,12 @@ class AlphaPermissionEngineChunkB:
 
         if auction_state is not None:
             if self._use_auction_state_gate:
-                if auction_state.state in {"BALANCED", "DISCOVERY"}:
-                    multiplier = 1.05 if auction_state.value_acceptance else 1.00
-                elif auction_state.state == "TRENDING":
-                    multiplier = 1.10 if cvd_confirms else 0.85
-                elif auction_state.state == "EXHAUSTION":
-                    multiplier = 0.80
-                elif auction_state.state == "FAILED_AUCTION":
-                    multiplier = 1.12 if cvd_confirms else 0.75
-                else:
-                    multiplier = 0.90
+                fade_path = signal_mode == "divergence" or divergence_type == "volume_bar_cvd"
+                multiplier = self._auction_multiplier(
+                    auction_state,
+                    cvd_confirms=cvd_confirms,
+                    fade_path=fade_path,
+                )
                 kq, rec = self._apply(kq, multiplier, "PHASE4", f"AUCTION_{auction_state.state}")
                 chain.append(rec)
             else:
@@ -159,6 +156,33 @@ class AlphaPermissionEngineChunkB:
         )
         self._record(permission)
         return permission
+
+    @staticmethod
+    def _auction_multiplier(
+        auction_state: AuctionStateSnapshot,
+        *,
+        cvd_confirms: bool,
+        fade_path: bool,
+    ) -> float:
+        if fade_path:
+            if auction_state.state in {"BALANCED", "DISCOVERY"}:
+                return 1.05 if auction_state.value_acceptance else 1.00
+            if auction_state.state == "EXHAUSTION":
+                return 1.08
+            if auction_state.state == "FAILED_AUCTION":
+                return 1.12 if not cvd_confirms else 0.78
+            if auction_state.state == "TRENDING":
+                return 0.75
+            return 0.90
+        if auction_state.state in {"BALANCED", "DISCOVERY"}:
+            return 1.05 if auction_state.value_acceptance else 1.00
+        if auction_state.state == "TRENDING":
+            return 1.10 if cvd_confirms else 0.85
+        if auction_state.state == "EXHAUSTION":
+            return 0.80
+        if auction_state.state == "FAILED_AUCTION":
+            return 1.12 if cvd_confirms else 0.75
+        return 0.90
 
     def _apply(
         self,

@@ -28,7 +28,7 @@ That gap is not a single bug — it is **signal choice + conversion layer drift*
 
 ## Staged program
 
-### Stage 1 — Alignment (checkpoint `stage-1-alignment`) ✅ in progress
+### Stage 1 — Alignment (checkpoint `stage-1-alignment`) ✅
 
 - [x] New repo `tm-trading-v73-current`
 - [x] Shared `VolumeBarCVD` engine module
@@ -36,16 +36,19 @@ That gap is not a single bug — it is **signal choice + conversion layer drift*
 - [x] Permission: no CVD-confirm / VWAP penalty on volume-bar path
 - [x] `exit_after_volume_bars` exit (default 5 in v73 runner)
 - [x] `scripts/v73_backtest_6y_incremental.py` with correct CLI profile
-- [ ] Smoke backtest on one archive + unittest green
 
-### Stage 2 — Conversion tuning
+### Stage 2 — Conversion tuning (checkpoint `stage-2-conversion`) ✅
 
-Sub-agent research targets:
+- [x] Fade-aware auction multipliers (`phase5_chunkb.py`)
+- [x] Regime gate on volume-bar (`--use-regime-gate-volume-bar`, on in v73 runner)
+- [x] Fee-aware TP/SL: stop 0.45%, target 0.25%
+- [x] Auction gate default on for v73 6y
+- [x] Parquet cache symlink → v555 `results/indicator_cache` (reuse Codex pre-cache)
+- [x] `scripts/v73_conversion_sweep.py`
 
-- TP/SL vs fee-aware targets (research: lower target, wider stop)
-- Auction-state gate ablation for fades
-- Regime gate on volume-bar path
-- D5 delta-reversal entry (diagnostic stage)
+Pending:
+
+- D5 delta-reversal entry
 
 ### Stage 3 — Filters & scorecards
 

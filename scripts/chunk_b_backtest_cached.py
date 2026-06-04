@@ -23,7 +23,7 @@ from prime.phase5_chunkb import AlphaPermissionEngineChunkB
 from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
 from prime.contracts import DataQualitySnapshot
 from prime.volume_bars import VolumeBar
-from prime.volume_bar_cvd import htf_flat_abs_threshold, volume_bar_cvd_signal
+from prime.volume_bar_cvd import htf_change_at, htf_flat_abs_threshold, volume_bar_cvd_signal
 from prime.auction_state import AuctionStateEngine
 from storage.hot_path import assert_nvme_archive, assert_nvme_path, hot_btcusdt_aggtrades_dir
 
@@ -80,6 +80,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Exit open trade after N volume bars (aligns with diagnostic horizon)",
+    )
+    parser.add_argument(
+        "--use-regime-gate-volume-bar",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Gate volume_bar_cvd to RANGING/UNKNOWN regimes (mean-reversion eligibility)",
     )
     return parser.parse_args()
 
@@ -170,6 +176,7 @@ def main() -> int:
         htf_flat_quantile=args.htf_flat_quantile,
         use_auction_state_gate=args.use_auction_state_gate,
         exit_after_volume_bars=args.exit_after_volume_bars,
+        use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
@@ -255,13 +262,7 @@ def main() -> int:
             )
             bars.append(bar_obj)
 
-            # Compute HTF change only when the volume-bar divergence gate needs it.
-            hour_ns = 3_600_000_000_000
-            target_ts = ts - hour_ns
-            for b in bars:
-                if b.end_ts_ns >= target_ts:
-                    htf_change = bar_obj.cumulative_delta - b.cumulative_delta
-                    break
+            htf_change = htf_change_at(bars, bar_obj.end_ts_ns, bar_obj.cumulative_delta)
             htf_changes_history.append(abs(htf_change))
 
         # Update rolling price history
@@ -452,19 +453,22 @@ def main() -> int:
             elif config.divergence_type == "volume_bar_cvd":
                 assert bars is not None
                 assert htf_changes_history is not None
-                flat_abs = htf_flat_abs_threshold(
-                    htf_changes_history,
-                    quantile=config.htf_flat_quantile,
-                )
-                signal = volume_bar_cvd_signal(
-                    bars,
-                    lookback_bars=config.divergence_lookback_bars,
-                    htf_change=htf_change,
-                    flat_abs=flat_abs,
-                    timestamp_ns=ts,
-                    price=close,
-                    invert_signal_side=config.invert_signal_side,
-                )
+                if not config.use_regime_gate_volume_bar or classifier.gate_for_signal_mode(
+                    regime, "divergence"
+                ):
+                    flat_abs = htf_flat_abs_threshold(
+                        htf_changes_history,
+                        quantile=config.htf_flat_quantile,
+                    )
+                    signal = volume_bar_cvd_signal(
+                        bars,
+                        lookback_bars=config.divergence_lookback_bars,
+                        htf_change=htf_change,
+                        flat_abs=flat_abs,
+                        timestamp_ns=ts,
+                        price=close,
+                        invert_signal_side=config.invert_signal_side,
+                    )
             else:
                 # Opposite delta divergence logic
                 if classifier.gate_for_signal_mode(regime, "divergence"):
@@ -560,6 +564,7 @@ def main() -> int:
                 else None
             ),
             auction_state=auction_state,
+            divergence_type=config.divergence_type,
         )
         permission_counts[permission.verdict] = permission_counts.get(permission.verdict, 0) + 1
         if permission.verdict not in {"APPROVE", "REDUCED"}:

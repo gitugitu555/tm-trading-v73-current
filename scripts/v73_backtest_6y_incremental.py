@@ -23,6 +23,8 @@ WORK_DIR = ROOT / "results/v73_backtest_6y_work"
 THRESHOLD = 300.0
 LOOKBACK = 40
 EXIT_BARS = 5
+STOP_PCT = 0.0045
+TARGET_PCT = 0.0025
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +40,10 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "results/v73_backtest_6y_volume_bar_cvd.json",
     )
-    p.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--use-regime-gate-volume-bar", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--stop-pct", type=float, default=STOP_PCT)
+    p.add_argument("--target-pct", type=float, default=TARGET_PCT)
     p.add_argument("--resume", action="store_true")
     p.add_argument("--starting-equity", type=float, default=None)
     return p.parse_args()
@@ -84,6 +89,9 @@ def run_archive_backtest(
     exit_bars: int,
     starting_equity: float,
     use_auction_state_gate: bool,
+    use_regime_gate_volume_bar: bool,
+    stop_pct: float,
+    target_pct: float,
     trades_out: Path,
 ) -> dict:
     cmd = [
@@ -104,6 +112,11 @@ def run_archive_backtest(
         "--exit-after-volume-bars",
         str(exit_bars),
         "--no-use-cvd-reversal-confirm",
+        "--stop-pct",
+        str(stop_pct),
+        "--target-pct",
+        str(target_pct),
+        "--use-regime-gate-volume-bar" if use_regime_gate_volume_bar else "--no-use-regime-gate-volume-bar",
         "--starting-equity",
         str(starting_equity),
         "--trades-out",
@@ -233,6 +246,9 @@ def main() -> int:
             exit_bars=args.exit_after_volume_bars,
             starting_equity=equity,
             use_auction_state_gate=args.use_auction_state_gate,
+            use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
+            stop_pct=args.stop_pct,
+            target_pct=args.target_pct,
             trades_out=trades_path,
         )
         archive_reports.append(payload)
@@ -266,6 +282,9 @@ def main() -> int:
         "divergence_lookback_bars": args.divergence_lookback_bars,
         "exit_after_volume_bars": args.exit_after_volume_bars,
         "use_auction_state_gate": args.use_auction_state_gate,
+        "use_regime_gate_volume_bar": args.use_regime_gate_volume_bar,
+        "stop_pct": args.stop_pct,
+        "target_pct": args.target_pct,
         "command": "scripts/v73_backtest_6y_incremental.py",
         "report": merged,
     }
