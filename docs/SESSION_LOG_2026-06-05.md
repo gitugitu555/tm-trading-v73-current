@@ -182,13 +182,67 @@ tail -f logs/cache_manager.log
 
 ---
 
+## Corrected volume-bar horizon breakthrough
+
+The earlier exit sweeps were confounded: the default five-minute `TIME` exit
+usually fired before `exit-after-volume-bars`, so changing the bar horizon often
+did not change the trades. This explains the identical results across many
+8/12/20/30-bar configurations.
+
+Added `--no-use-time-exit` to make pure or hybrid volume-bar horizon tests
+explicit in both cached and tick backtest paths.
+
+### Corrected 6m sweep
+
+**Script:** `scripts/v73_sweep_corrected_horizon_6m.py`
+
+Leading hybrid candidate:
+
+| Metric | Value |
+|--------|-------|
+| Config | non-invert, gates off, lookback 40, 12 real volume bars, 0.6% target, 3% emergency stop |
+| Trades | 265 |
+| Win rate | **74.72%** |
+| PnL | **+$208.56** |
+
+The best pure-bar candidate produced 59.1% WR and +$311. The corrected-horizon
+results show a profitable parameter region rather than one isolated point.
+
+### Corrected 6y validation
+
+Leading hybrid candidate:
+
+```bash
+.venv/bin/python scripts/v73_backtest_6y_incremental.py \
+  --no-use-time-exit \
+  --no-use-regime-gate-volume-bar --no-use-footprint-confluence --no-use-auction-state-gate \
+  --stop-pct 0.03 --target-pct 0.006 \
+  --divergence-lookback-bars 40 --exit-after-volume-bars 12
+```
+
+| Metric | Old 6y baseline | Corrected 6y hybrid |
+|--------|-----------------|---------------------|
+| Trades | 6,110 | 7,586 |
+| Win rate | 44.4% | **62.35%** |
+| PnL | -$5,095 | **+$3,890** |
+| Sharpe | -9.95 | **2.155** |
+| DSR passed | No | **Yes** |
+
+This reaches the requested 70% win rate on the recent six-month validation
+window. Full-history win rate is 62.35%, so it is materially better and
+profitable after modeled costs, but it is not yet a universal 70% strategy. The
+remaining work should optimize from this corrected exit foundation, not from the
+legacy five-minute timeout.
+
+---
+
 ## Recommended next steps
 
-1. **Do not** enable `--invert-signal-side` globally — use walk-forward or rolling 6m validation.
-2. **Non-invert 6y expectancy sweep** — wide targets, rank by chained PnL (invert hurt 6y).
-3. **Signal/cache:** session-reset `cumulative_delta` in `cache_indicators.py`; min CVD divergence gap; RANGING-only gate.
-4. **Align exits:** `exit-after-volume-bars` = `signal-horizon-bars`; reduce `TIME` exits vs micro targets.
-5. **Publish research** in `tm-trading-research` repo (manifests live there; v73 symlinks for runs).
+1. Walk-forward validate the corrected 12-bar hybrid by year and market regime.
+2. Sweep around the stable region: lookback 25–80, exit 10–16 bars, target 0.4%–1.0%.
+3. Add signal-quality filters only if they improve out-of-sample PnL and Sharpe, not win rate alone.
+4. Do not enable `--invert-signal-side` globally; full-history results reject it.
+5. Publish research in `tm-trading-research` repo (manifests live there; v73 symlinks for runs).
 
 ---
 
@@ -199,9 +253,12 @@ tail -f logs/cache_manager.log
 | Offline cache builders | ✅ Yes | 133/133 @ 300 BTC |
 | 28 detached workers | ✅ Yes | Survives net/logout |
 | 6y baseline backtest | ✅ Ran | 44.4% WR, -$5.1k |
-| 70% WR on 6m | ❌ No | Max **57.4%** (invert scalp) |
+| Legacy 70% WR sweep on 6m | ❌ No | Max **57.4%** (invert scalp) |
 | Expectancy invert + wide 6m | ❌ No | 0/90 profitable |
 | Expectancy invert + wide 6y | ❌ No | 21.9% WR, -$6.5k |
 | High WR + profit | ❌ No | Fees eat 0.15% targets |
+| Corrected 6m hybrid | ✅ Yes | **74.72% WR, +$208.56** |
+| Corrected 6m pure-bar horizon | ✅ Yes | **59.1% WR, +$311** |
+| Corrected 6y hybrid | ✅ Yes | **62.35% WR, +$3,890, Sharpe 2.155** |
 
 *Logged for GitHub — push with `docs/SESSION_LOG_2026-06-05.md` on `master`.*

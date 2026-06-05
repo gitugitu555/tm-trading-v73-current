@@ -625,6 +625,20 @@ class V72ChunkBTest(unittest.TestCase):
 
         self.assertEqual(backtester._exit_reason(open_trade, 1, 100.0), "CVD_EXIT")
 
+    def test_time_exit_can_be_disabled_for_volume_bar_horizon(self):
+        backtester = ChunkBBacktester(ChunkBBacktestConfig(use_time_exit=False))
+        open_trade = OpenTradeState.from_legacy_dict(
+            {
+                "side": 1,
+                "entry_price": 100.0,
+                "exit_after_ts_ns": 1,
+                "exit_after_volume_bars": 5,
+                "bars_since_entry": 4,
+            }
+        )
+
+        self.assertIsNone(backtester._exit_reason(open_trade, 2, 100.0))
+
     def test_cvd_quantile_filter_uses_absolute_extremes(self):
         history = deque([-10.0, 20.0, -30.0, 40.0], maxlen=4)
 

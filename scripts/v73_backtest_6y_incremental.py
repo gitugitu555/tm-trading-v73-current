@@ -36,6 +36,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--threshold-btc", type=float, default=THRESHOLD)
     p.add_argument("--divergence-lookback-bars", type=int, default=LOOKBACK)
     p.add_argument("--exit-after-volume-bars", type=int, default=EXIT_BARS)
+    p.add_argument(
+        "--use-time-exit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable the wall-clock hold timeout; disable for pure volume-bar horizon tests",
+    )
     p.add_argument("--start-index", type=int, default=0)
     p.add_argument("--end-index", type=int, default=None)
     p.add_argument(
@@ -135,6 +141,7 @@ def run_archive_backtest(
     target_pct: float,
     trades_out: Path,
     invert_signal_side: bool = False,
+    use_time_exit: bool = True,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -153,6 +160,7 @@ def run_archive_backtest(
         str(lookback),
         "--exit-after-volume-bars",
         str(exit_bars),
+        "--use-time-exit" if use_time_exit else "--no-use-time-exit",
         "--no-use-cvd-reversal-confirm",
         "--stop-pct",
         str(stop_pct),
@@ -336,6 +344,7 @@ def main() -> int:
             target_pct=args.target_pct,
             trades_out=trades_path,
             invert_signal_side=args.invert_signal_side,
+            use_time_exit=args.use_time_exit,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(
@@ -372,6 +381,7 @@ def main() -> int:
         "threshold_btc": args.threshold_btc,
         "divergence_lookback_bars": args.divergence_lookback_bars,
         "exit_after_volume_bars": args.exit_after_volume_bars,
+        "use_time_exit": args.use_time_exit,
         "use_auction_state_gate": args.use_auction_state_gate,
         "use_regime_gate_volume_bar": args.use_regime_gate_volume_bar,
         "use_footprint_confluence": args.use_footprint_confluence,

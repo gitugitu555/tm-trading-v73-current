@@ -48,6 +48,7 @@ class ChunkBBacktestConfig:
     kq_approve: float = 0.55
     base_position_pct: float = 0.01
     hold_ns: int = 300_000_000_000
+    use_time_exit: bool = True
     stop_pct: float = 0.003
     target_pct: float = 0.006
     use_tpsl: bool = True
@@ -651,7 +652,7 @@ class ChunkBBacktester:
             and open_trade.bars_since_entry >= open_trade.exit_after_volume_bars
         ):
             return "BAR_EXIT"
-        if ts >= open_trade.exit_after_ts_ns:
+        if self.config.use_time_exit and ts >= open_trade.exit_after_ts_ns:
             return "TIME"
         return None
 

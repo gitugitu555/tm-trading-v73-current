@@ -57,6 +57,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--regime-stress-cvd-threshold", type=float, default=500.0)
     parser.add_argument("--kq-approve", type=float, default=0.55)
     parser.add_argument("--hold-ns", type=int, default=300_000_000_000)
+    parser.add_argument(
+        "--use-time-exit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable the wall-clock hold timeout; disable for pure volume-bar horizon tests",
+    )
     parser.add_argument("--stop-pct", type=float, default=0.003)
     parser.add_argument("--target-pct", type=float, default=0.006)
     parser.add_argument("--use-tpsl", action=argparse.BooleanOptionalAction, default=True)
@@ -203,6 +209,7 @@ def main() -> int:
         divergence_threshold_15m=args.divergence_threshold_15m,
         divergence_threshold_5m=args.divergence_threshold_5m,
         hold_ns=args.hold_ns,
+        use_time_exit=args.use_time_exit,
         regime_trend_threshold_pct=args.regime_trend_threshold,
         regime_ranging_threshold_pct=args.regime_ranging_threshold,
         use_stress_regime=args.use_stress_regime,
@@ -394,7 +401,7 @@ def main() -> int:
                 and open_trade.bars_since_entry >= open_trade.exit_after_volume_bars
             ):
                 exit_reason = "BAR_EXIT"
-            if exit_reason is None and ts >= open_trade.exit_after_ts_ns:
+            if exit_reason is None and config.use_time_exit and ts >= open_trade.exit_after_ts_ns:
                 exit_reason = "TIME"
 
             if exit_reason is not None:
