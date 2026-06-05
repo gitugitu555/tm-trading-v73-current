@@ -300,3 +300,79 @@ Yearly validation for the 72.89% operating point is profitable in every year
 except 2023. The remaining concentrated weakness is 2023: 1,510 trades,
 56.82% win rate, and -$93.90. Future filters should prove improvement on 2023
 without damaging the profitable years.
+
+---
+
+## Final decision record: what worked and what did not
+
+### What worked robustly
+
+1. **Fixing the exit-horizon confounder**
+   - Disabling the legacy five-minute wall-clock timeout allowed
+     `exit-after-volume-bars` to control the trade horizon.
+   - This was the largest improvement and changed the strategy from losing to
+     profitable across six years.
+
+2. **Keeping the original non-inverted CVD fade**
+   - Inversion improved one recent six-month scalp test, but failed badly over
+     six years.
+   - The non-inverted fade is the robust direction.
+
+3. **Using a 16-volume-bar horizon**
+   - Improved the 0.6% target candidate from 62.35% WR / +$3,890 at 12 bars to
+     65.78% WR / +$5,187 at 16 bars.
+   - Reduced the concentrated 2023 loss substantially.
+
+4. **Keeping the 3% emergency stop**
+   - Preserved high win rate and left trades enough room for the volume-bar
+     thesis to resolve.
+   - Stops remained rare: 21 stop exits in the final 7,864-trade candidate.
+
+5. **Selecting the target by operating objective**
+   - 0.4% target: full-history win-rate objective, 72.89% WR.
+   - 0.5% target: balanced objective, 69.01% WR and +$4,573.
+   - 0.6% target: PnL/Sharpe objective, +$5,187 and Sharpe 2.70.
+
+### What did not work robustly
+
+1. **Global signal inversion**
+   - Recent-window win rate improved, but six-year inversion fell to 21.9% WR
+     and -$6,537.
+
+2. **Tiny 0.15% scalp targets**
+   - Reached 57.4% WR in the old recent-window test but remained unprofitable
+     because modeled fees consumed the edge.
+
+3. **Wide targets with the legacy five-minute timeout**
+   - Most trades exited on `TIME`; target and bar-horizon changes were often
+     ineffective.
+
+4. **Regime gate and approve-only permission as global defaults**
+   - Both improved recent six-month results.
+   - Full-history results degraded to 58.33% WR / +$1,370 and 60.82% WR /
+     +$3,002 respectively.
+
+5. **Entry-delta alignment**
+   - Post-hoc diagnostics looked promising, but the actual backtest reduced
+     recent PnL materially. It remains an optional research flag only.
+
+6. **Footprint and D5 confirmation filters**
+   - Reduced trade count without improving the robust strategy result.
+
+### Current default
+
+```bash
+.venv/bin/python scripts/v73_backtest_6y_incremental.py
+```
+
+Defaults: non-invert, gates off, lookback 40, 16 actual volume bars, no
+wall-clock timeout, 3% stop, 0.4% target.
+
+Validated result: **7,864 trades, 72.89% WR, +$3,532.78, Sharpe 2.1109, DSR
+passed**.
+
+### Next research target
+
+Study 2023 specifically, but accept a new filter only if it improves 2023
+without materially damaging the other profitable years or the full-history
+Sharpe/PnL.
