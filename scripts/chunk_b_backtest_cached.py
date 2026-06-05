@@ -25,6 +25,7 @@ from prime.contracts import DataQualitySnapshot
 from prime.volume_bars import VolumeBar
 from prime.footprint_confluence import footprint_confirms_fade
 from prime.volume_bar_cvd import (
+    entry_delta_aligns,
     htf_change_at,
     htf_flat_abs_threshold,
     volume_bar_cvd_signal,
@@ -145,6 +146,12 @@ def parse_args() -> argparse.Namespace:
         help="D5 entry: wait 2 bar deltas confirm fade after divergence",
     )
     parser.add_argument(
+        "--require-entry-delta-alignment",
+        action="store_true",
+        default=False,
+        help="Require current volume-bar delta direction to align with the trade side",
+    )
+    parser.add_argument(
         "--manifest-jsonl",
         type=Path,
         default=Path("results/manifest.jsonl"),
@@ -248,6 +255,7 @@ def main() -> int:
         approve_only_permission=args.approve_only_permission,
         require_delta_exhaustion_fade=args.require_delta_exhaustion_fade,
         use_delta_rev_2_entry=args.use_delta_rev_2_entry,
+        require_entry_delta_alignment=args.require_entry_delta_alignment,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
@@ -576,6 +584,13 @@ def main() -> int:
                         if row.delta_exhaustion != want:
                             signal_scorecard.record_drop("delta_exhaustion_mismatch")
                             signal = None
+                    if (
+                        signal is not None
+                        and config.require_entry_delta_alignment
+                        and not entry_delta_aligns(int(signal["side"]), float(row.delta))
+                    ):
+                        signal_scorecard.record_drop("entry_delta_misaligned")
+                        signal = None
             else:
                 # Opposite delta divergence logic
                 if classifier.gate_for_signal_mode(regime, "divergence"):

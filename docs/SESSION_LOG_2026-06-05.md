@@ -262,3 +262,41 @@ legacy five-minute timeout.
 | Corrected 6y hybrid | ✅ Yes | **62.35% WR, +$3,890, Sharpe 2.155** |
 
 *Logged for GitHub — push with `docs/SESSION_LOG_2026-06-05.md` on `master`.*
+
+---
+
+## Continued optimization: full-history 70% target reached
+
+The corrected strategy keeps the requested **3% emergency stop**. Stop-loss
+events are rare because the volume-bar exit and target usually resolve first.
+
+Six-year failure analysis:
+
+- The 12-bar hybrid had only 13 stop exits from 7,586 trades.
+- `BAR_EXIT` was the main loss source: -$9,524 across 4,447 trades.
+- 2023 was the weakest year; extending the horizon from 12 to 16 bars reduced
+  its loss from about -$315 to about -$50.
+- Regime gating and approve-only permission improved recent six-month metrics
+  but reduced full-history performance.
+- Entry-delta alignment looked promising post hoc but failed an actual
+  backtest, so it remains research-only.
+
+### Six-year operating points
+
+All use: non-invert, gates off, lookback 40, 16 real 300 BTC volume bars,
+wall-clock time exit disabled, and 3% emergency stop.
+
+| Target | Trades | Win rate | PnL | Sharpe | Role |
+|--------|--------|----------|-----|--------|------|
+| **0.4%** | 7,864 | **72.89%** | **+$3,532.78** | **2.1109** | Win-rate target |
+| 0.5% | 7,499 | 69.01% | +$4,573.24 | 2.5254 | Balanced |
+| 0.6% | 7,242 | 65.78% | **+$5,187.03** | **2.7002** | Max PnL/Sharpe |
+
+The default `v73_backtest_6y_incremental.py` configuration now represents the
+72.89% win-rate operating point: 3% stop, 0.4% target, 16 volume bars, gates
+off, and no wall-clock time exit.
+
+Yearly validation for the 72.89% operating point is profitable in every year
+except 2023. The remaining concentrated weakness is 2023: 1,510 trades,
+56.82% win rate, and -$93.90. Future filters should prove improvement on 2023
+without damaging the profitable years.

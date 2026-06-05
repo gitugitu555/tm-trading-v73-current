@@ -7,6 +7,11 @@ from collections.abc import Sequence
 from prime.volume_bars import VolumeBar
 
 
+def entry_delta_aligns(side: int, delta: float) -> bool:
+    """Require current volume-bar flow to align with the proposed trade side."""
+    return (side > 0 and delta > 0) or (side < 0 and delta < 0)
+
+
 def htf_change_at(bars: Sequence[VolumeBar], current_ts: int, current_cvd: float) -> float:
     hour_ns = 3_600_000_000_000
     target_ts = current_ts - hour_ns

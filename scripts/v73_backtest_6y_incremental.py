@@ -25,9 +25,9 @@ CACHE_DIR = ROOT / "results/indicator_cache"
 DEFAULT_WORK_DIR = ROOT / "results/v73_backtest_6y_work"
 THRESHOLD = 300.0
 LOOKBACK = 40
-EXIT_BARS = 5
-STOP_PCT = 0.0045
-TARGET_PCT = 0.0015
+EXIT_BARS = 16
+STOP_PCT = 0.03
+TARGET_PCT = 0.004
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--use-time-exit",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
         help="Enable the wall-clock hold timeout; disable for pure volume-bar horizon tests",
     )
     p.add_argument("--start-index", type=int, default=0)
@@ -49,12 +49,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "results/v73_backtest_6y_volume_bar_cvd.json",
     )
-    p.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=True)
-    p.add_argument("--use-regime-gate-volume-bar", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--use-regime-gate-volume-bar", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--stop-pct", type=float, default=STOP_PCT)
     p.add_argument("--target-pct", type=float, default=TARGET_PCT)
-    p.add_argument("--use-footprint-confluence", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--use-footprint-confluence", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--invert-signal-side", action="store_true", default=False)
+    p.add_argument("--require-entry-delta-alignment", action="store_true", default=False)
+    p.add_argument("--approve-only-permission", action="store_true", default=False)
     p.add_argument(
         "--work-dir",
         type=Path,
@@ -142,6 +144,8 @@ def run_archive_backtest(
     trades_out: Path,
     invert_signal_side: bool = False,
     use_time_exit: bool = True,
+    require_entry_delta_alignment: bool = False,
+    approve_only_permission: bool = False,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -179,6 +183,10 @@ def run_archive_backtest(
         cmd.append("--no-use-auction-state-gate")
     if invert_signal_side:
         cmd.append("--invert-signal-side")
+    if require_entry_delta_alignment:
+        cmd.append("--require-entry-delta-alignment")
+    if approve_only_permission:
+        cmd.append("--approve-only-permission")
     proc = subprocess.run(
         cmd,
         cwd=ROOT,
@@ -345,6 +353,8 @@ def main() -> int:
             trades_out=trades_path,
             invert_signal_side=args.invert_signal_side,
             use_time_exit=args.use_time_exit,
+            require_entry_delta_alignment=args.require_entry_delta_alignment,
+            approve_only_permission=args.approve_only_permission,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(
@@ -388,6 +398,8 @@ def main() -> int:
         "stop_pct": args.stop_pct,
         "target_pct": args.target_pct,
         "invert_signal_side": args.invert_signal_side,
+        "require_entry_delta_alignment": args.require_entry_delta_alignment,
+        "approve_only_permission": args.approve_only_permission,
         "command": "scripts/v73_backtest_6y_incremental.py",
         "report": merged,
     }

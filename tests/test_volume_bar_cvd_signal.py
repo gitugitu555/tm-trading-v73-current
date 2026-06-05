@@ -1,9 +1,16 @@
 import unittest
 from collections import deque
 from prime.chunk_b_backtest import ChunkBBacktestConfig, ChunkBBacktester
+from prime.volume_bar_cvd import entry_delta_aligns
 from prime.nautilus_compat import TradeTick, InstrumentId, Price, Quantity, AggressorSide
 
 class VolumeBarCVDSignalTest(unittest.TestCase):
+    def test_entry_delta_alignment(self) -> None:
+        self.assertTrue(entry_delta_aligns(+1, 10.0))
+        self.assertTrue(entry_delta_aligns(-1, -10.0))
+        self.assertFalse(entry_delta_aligns(+1, -10.0))
+        self.assertFalse(entry_delta_aligns(-1, 0.0))
+
     def test_volume_bar_cvd_signal_initialization_and_evaluation(self) -> None:
         config = ChunkBBacktestConfig(
             signal_mode="divergence",

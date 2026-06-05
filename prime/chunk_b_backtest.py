@@ -24,6 +24,7 @@ from prime.phase4_minimal import HardRegimeClassifier, RegimeState
 from prime.phase5_chunkb import AlphaPermissionEngineChunkB
 from prime.volume_bars import VolumeBar, VolumeBarSampler
 from prime.volume_bar_cvd import (
+    entry_delta_aligns,
     htf_change_at,
     htf_flat_abs_threshold,
     volume_bar_cvd_signal,
@@ -88,6 +89,7 @@ class ChunkBBacktestConfig:
     approve_only_permission: bool = False
     require_delta_exhaustion_fade: bool = False
     use_delta_rev_2_entry: bool = False
+    require_entry_delta_alignment: bool = False
 
 
 @dataclass(frozen=True)
@@ -407,7 +409,7 @@ class ChunkBBacktester:
             quantile=self.config.htf_flat_quantile,
         )
         if self.config.use_delta_rev_2_entry:
-            return volume_bar_cvd_signal_d5(
+            signal = volume_bar_cvd_signal_d5(
                 self._bars,
                 lookback_bars=self.config.divergence_lookback_bars,
                 htf_change=htf_change,
@@ -416,15 +418,23 @@ class ChunkBBacktester:
                 price=price,
                 invert_signal_side=self.config.invert_signal_side,
             )
-        return volume_bar_cvd_signal(
-            self._bars,
-            lookback_bars=self.config.divergence_lookback_bars,
-            htf_change=htf_change,
-            flat_abs=flat_abs,
-            timestamp_ns=timestamp_ns,
-            price=price,
-            invert_signal_side=self.config.invert_signal_side,
-        )
+        else:
+            signal = volume_bar_cvd_signal(
+                self._bars,
+                lookback_bars=self.config.divergence_lookback_bars,
+                htf_change=htf_change,
+                flat_abs=flat_abs,
+                timestamp_ns=timestamp_ns,
+                price=price,
+                invert_signal_side=self.config.invert_signal_side,
+            )
+        if (
+            signal is not None
+            and self.config.require_entry_delta_alignment
+            and not entry_delta_aligns(int(signal["side"]), current_bar.delta)
+        ):
+            return None
+        return signal
 
     def _momentum_signal(
         self,
