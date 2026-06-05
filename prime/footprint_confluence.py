@@ -14,13 +14,16 @@ def footprint_confirms_fade(
     footprint_bias: int,
     footprint_stacked: bool,
     require_stacked: bool = False,
+    allow_neutral: bool = True,
+    invert_for_fade: bool = False,
 ) -> bool:
     """Return True when footprint agrees with fade direction (or is neutral).
     Legacy simple boolean for backward compat in existing backtests.
     """
+    expected = -trade_side if invert_for_fade else trade_side
     if footprint_bias == 0:
-        return True
-    if footprint_bias != trade_side:
+        return allow_neutral
+    if footprint_bias != expected:
         return False
     if require_stacked and not footprint_stacked:
         return False

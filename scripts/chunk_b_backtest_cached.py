@@ -101,6 +101,36 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Require cached footprint_bias to align with fade side",
     )
+    parser.add_argument(
+        "--footprint-require-stacked",
+        action="store_true",
+        default=False,
+        help="Require footprint_stacked when footprint gate is on",
+    )
+    parser.add_argument(
+        "--footprint-invert-for-fade",
+        action="store_true",
+        default=False,
+        help="Require opposing footprint_bias (absorption hypothesis)",
+    )
+    parser.add_argument(
+        "--no-footprint-allow-neutral",
+        action="store_true",
+        default=False,
+        help="Block neutral footprint_bias when footprint gate is on",
+    )
+    parser.add_argument(
+        "--approve-only-permission",
+        action="store_true",
+        default=False,
+        help="Skip REDUCED permission trades (APPROVE only)",
+    )
+    parser.add_argument(
+        "--require-delta-exhaustion-fade",
+        action="store_true",
+        default=False,
+        help="Require delta_exhaustion aligned with fade side",
+    )
     parser.add_argument("--signal-horizon-bars", type=int, default=5)
     parser.add_argument(
         "--use-delta-rev-2-entry",
@@ -205,7 +235,11 @@ def main() -> int:
         exit_after_volume_bars=args.exit_after_volume_bars,
         use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
         use_footprint_confluence=args.use_footprint_confluence,
-        footprint_require_stacked=False,
+        footprint_require_stacked=args.footprint_require_stacked,
+        footprint_invert_for_fade=args.footprint_invert_for_fade,
+        footprint_allow_neutral=not args.no_footprint_allow_neutral,
+        approve_only_permission=args.approve_only_permission,
+        require_delta_exhaustion_fade=args.require_delta_exhaustion_fade,
         use_delta_rev_2_entry=args.use_delta_rev_2_entry,
     )
     uses_volume_bar_edge = (
@@ -525,8 +559,15 @@ def main() -> int:
                             footprint_bias=int(row.footprint_bias),
                             footprint_stacked=bool(row.footprint_stacked),
                             require_stacked=config.footprint_require_stacked,
+                            allow_neutral=config.footprint_allow_neutral,
+                            invert_for_fade=config.footprint_invert_for_fade,
                         ):
                             signal_scorecard.record_drop("footprint_confluence")
+                            signal = None
+                    if signal is not None and config.require_delta_exhaustion_fade:
+                        want = "BUY_EXHAUSTION" if int(signal["side"]) == -1 else "SELL_EXHAUSTION"
+                        if row.delta_exhaustion != want:
+                            signal_scorecard.record_drop("delta_exhaustion_mismatch")
                             signal = None
             else:
                 # Opposite delta divergence logic
@@ -637,7 +678,8 @@ def main() -> int:
             divergence_type=config.divergence_type,
         )
         permission_counts[permission.verdict] = permission_counts.get(permission.verdict, 0) + 1
-        if permission.verdict not in {"APPROVE", "REDUCED"}:
+        allowed_verdicts = {"APPROVE"} if config.approve_only_permission else {"APPROVE", "REDUCED"}
+        if permission.verdict not in allowed_verdicts:
             signal_scorecard.record_drop(f"permission_{permission.verdict}")
             continue
 

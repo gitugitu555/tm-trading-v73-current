@@ -82,6 +82,10 @@ class ChunkBBacktestConfig:
     use_regime_gate_volume_bar: bool = False
     use_footprint_confluence: bool = False
     footprint_require_stacked: bool = False
+    footprint_invert_for_fade: bool = False
+    footprint_allow_neutral: bool = True
+    approve_only_permission: bool = False
+    require_delta_exhaustion_fade: bool = False
     use_delta_rev_2_entry: bool = False
 
 

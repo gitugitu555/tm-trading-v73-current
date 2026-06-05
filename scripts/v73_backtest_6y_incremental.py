@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -21,7 +22,7 @@ from storage.hot_path import assert_nvme_archive, hot_btcusdt_aggtrades_dir
 
 DEFAULT_DEST = hot_btcusdt_aggtrades_dir()
 CACHE_DIR = ROOT / "results/indicator_cache"
-WORK_DIR = ROOT / "results/v73_backtest_6y_work"
+DEFAULT_WORK_DIR = ROOT / "results/v73_backtest_6y_work"
 THRESHOLD = 300.0
 LOOKBACK = 40
 EXIT_BARS = 5
@@ -47,6 +48,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--stop-pct", type=float, default=STOP_PCT)
     p.add_argument("--target-pct", type=float, default=TARGET_PCT)
     p.add_argument("--use-footprint-confluence", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--invert-signal-side", action="store_true", default=False)
+    p.add_argument(
+        "--work-dir",
+        type=Path,
+        default=None,
+        help="Per-archive report/trades directory (default: results/v73_backtest_6y_work)",
+    )
     p.add_argument("--resume", action="store_true")
     p.add_argument("--starting-equity", type=float, default=None)
     return p.parse_args()
@@ -126,6 +134,7 @@ def run_archive_backtest(
     stop_pct: float,
     target_pct: float,
     trades_out: Path,
+    invert_signal_side: bool = False,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -160,7 +169,15 @@ def run_archive_backtest(
         cmd.append("--use-auction-state-gate")
     else:
         cmd.append("--no-use-auction-state-gate")
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    if invert_signal_side:
+        cmd.append("--invert-signal-side")
+    proc = subprocess.run(
+        cmd,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": f"/home/tokio/tm-trading-research:{ROOT}"},
+    )
     if proc.stderr:
         print(proc.stderr, file=sys.stderr)
     text = proc.stdout.strip()
@@ -269,7 +286,8 @@ def equity_through_last_report(all_archives: list[Path], work_dir: Path) -> floa
 
 def main() -> int:
     args = parse_args()
-    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    work_dir = args.work_dir if args.work_dir is not None else DEFAULT_WORK_DIR
+    work_dir.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     dest = hot_btcusdt_aggtrades_dir()
@@ -282,8 +300,8 @@ def main() -> int:
 
     if args.resume:
         # Always scan from archive 0; skip months that already have *.report.json.
-        equity = equity_through_last_report(all_archives, WORK_DIR)
-        for trades_file in sorted(WORK_DIR.glob("*.trades.jsonl")):
+        equity = equity_through_last_report(all_archives, work_dir)
+        for trades_file in sorted(work_dir.glob("*.trades.jsonl")):
             all_trades.extend(load_trades(trades_file))
 
     slice_archives = all_archives[start_index:end]
@@ -295,7 +313,7 @@ def main() -> int:
 
     for idx, archive in enumerate(slice_archives):
         global_index = start_index + idx
-        report_file = WORK_DIR / f"{archive.name}.report.json"
+        report_file = work_dir / f"{archive.name}.report.json"
         if args.resume and report_file.is_file():
             print(f"[skip] {archive.name} (report exists)", flush=True)
             payload = json.loads(report_file.read_text(encoding="utf-8"))
@@ -303,7 +321,7 @@ def main() -> int:
             continue
         print(f"[{idx + 1}/{len(slice_archives)}] {archive.name}", flush=True)
         ensure_cache(archive, args.threshold_btc, dest)
-        trades_path = WORK_DIR / f"{archive.name}.trades.jsonl"
+        trades_path = work_dir / f"{archive.name}.trades.jsonl"
         payload = run_archive_backtest(
             archive,
             threshold=args.threshold_btc,
@@ -317,16 +335,17 @@ def main() -> int:
             stop_pct=args.stop_pct,
             target_pct=args.target_pct,
             trades_out=trades_path,
+            invert_signal_side=args.invert_signal_side,
         )
         archive_reports.append(payload)
-        (WORK_DIR / f"{archive.name}.report.json").write_text(
+        (work_dir / f"{archive.name}.report.json").write_text(
             json.dumps(payload, indent=2, sort_keys=True),
             encoding="utf-8",
         )
         chunk_trades = load_trades(trades_path)
         all_trades.extend(chunk_trades)
         equity = payload["report"]["ending_equity"]
-        (WORK_DIR / "progress.json").write_text(
+        (work_dir / "progress.json").write_text(
             json.dumps(
                 {
                     "last_archive": archive.name,
@@ -342,7 +361,7 @@ def main() -> int:
 
     all_report_payloads = [
         json.loads(path.read_text(encoding="utf-8"))
-        for path in sorted(WORK_DIR.glob("*.report.json"))
+        for path in sorted(work_dir.glob("*.report.json"))
     ]
     merged = merge_reports(all_report_payloads, all_trades)
     envelope = {
@@ -358,6 +377,7 @@ def main() -> int:
         "use_footprint_confluence": args.use_footprint_confluence,
         "stop_pct": args.stop_pct,
         "target_pct": args.target_pct,
+        "invert_signal_side": args.invert_signal_side,
         "command": "scripts/v73_backtest_6y_incremental.py",
         "report": merged,
     }
