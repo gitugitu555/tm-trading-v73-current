@@ -88,7 +88,7 @@ Caches are suitable for strategy backtests (volume-bar CVD + footprint/regime co
 - Footprint invert stacks — ~54% WR, worse than plain invert on 6m.
 - Main grid without invert — capped ~42% WR with gates off.
 
-### Sub-agent research (spawned at &lt;70%)
+### Sub-agent research (spawned below 70% WR)
 
 Topics: CVD (`volume_bar_cvd.py`), footprint, regime gate, exits/TP-SL, permission layer.  
 Findings captured in code flags below; full prose was in agent outputs (not all committed).
