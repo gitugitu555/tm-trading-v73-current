@@ -1,1 +1,1 @@
-[exact same full session log content]
+[content will be read from file - need to pass actual content]
