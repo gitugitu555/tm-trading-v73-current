@@ -32,9 +32,26 @@ This roadmap captures the current state of the repo and the next practical steps
 3. Preserve a clean separation between raw data, hot cache, results, and strategy code.
 4. Keep the repo ready for GitHub collaboration and review.
 
+## Expansion Phase
+
+Expansion work starts only after the active V7.7 replay, no-lookahead, parity,
+and signal-to-trade validation gates pass. Expansion modules remain passive
+diagnostics until walk-forward and out-of-sample evidence supports promotion.
+
+Current expansion research:
+
+- V8.2.1 Qwen validation addendum: true multi-level MLOFI, VPIN construction
+  comparisons, MAE/MFE trade-path research, and shadow-gate promotion criteria
+  (`docs/V82_1_QWEN_VALIDATION_ADDENDUM.md`)
+- Multi-symbol and cross-venue validation after the single-symbol research path
+  is reproducible
+- Advanced models only after deterministic diagnostics and labelled datasets
+  are trustworthy
+
 ## Future Blueprints
 
 - V7.4 auction-state blueprint: `docs/V74_AUCTION_STATE_ENGINE_BLUEPRINT.md`
 - V7.5 master roadmap: `docs/V75_MASTER_ROADMAP.md`
 - V7.6 SWOT and edge roadmap: `docs/V76_SWOT_EDGE_ROADMAP.md`
+- V8.2.1 Qwen validation addendum: `docs/V82_1_QWEN_VALIDATION_ADDENDUM.md`
 - Multi-agent automation roadmap: `docs/MULTI_AGENT_AUTOMATION_ROADMAP.md`
