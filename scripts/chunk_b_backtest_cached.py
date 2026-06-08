@@ -719,7 +719,9 @@ def main() -> int:
         notional = equity * permission.permitted_size
         t_pct = config.target_pct
         if args.scale_target_by_strength:
-            t_pct = config.target_pct * (1.0 + float(signal.get("strength", 0.0)))
+            # Scale target fractionally based on signal strength to allow high conviction signals to run
+            # but preserve a high win rate by not over-extending targets for standard/weaker signals.
+            t_pct = config.target_pct * (0.8 + 0.25 * float(signal.get("strength", 0.0)))
             
         open_trade = OpenTradeState(
             entry_ts_ns=ts,
