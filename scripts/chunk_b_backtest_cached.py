@@ -158,6 +158,12 @@ def parse_args() -> argparse.Namespace:
         help="Require current volume-bar delta direction to align with the trade side",
     )
     parser.add_argument(
+        "--base-position-pct",
+        type=float,
+        default=0.01,
+        help="Base position size as fraction of equity (default: 0.01)",
+    )
+    parser.add_argument(
         "--manifest-jsonl",
         type=Path,
         default=Path("results/manifest.jsonl"),
@@ -262,6 +268,7 @@ def main() -> int:
         require_delta_exhaustion_fade=args.require_delta_exhaustion_fade,
         use_delta_rev_2_entry=args.use_delta_rev_2_entry,
         require_entry_delta_alignment=args.require_entry_delta_alignment,
+        base_position_pct=args.base_position_pct,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"

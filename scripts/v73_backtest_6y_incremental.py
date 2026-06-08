@@ -66,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--resume", action="store_true")
     p.add_argument("--starting-equity", type=float, default=None)
+    p.add_argument("--base-position-pct", type=float, default=0.01)
     return p.parse_args()
 
 
@@ -148,6 +149,7 @@ def run_archive_backtest(
     require_entry_delta_alignment: bool = False,
     approve_only_permission: bool = False,
     scale_target_by_strength: bool = False,
+    base_position_pct: float = 0.01,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -176,6 +178,8 @@ def run_archive_backtest(
         "--use-footprint-confluence" if use_footprint_confluence else "--no-use-footprint-confluence",
         "--starting-equity",
         str(starting_equity),
+        "--base-position-pct",
+        str(base_position_pct),
         "--trades-out",
         str(trades_out),
     ]
@@ -360,6 +364,7 @@ def main() -> int:
             require_entry_delta_alignment=args.require_entry_delta_alignment,
             approve_only_permission=args.approve_only_permission,
             scale_target_by_strength=args.scale_target_by_strength,
+            base_position_pct=args.base_position_pct,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(

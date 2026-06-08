@@ -116,8 +116,25 @@ Shorter lookbacks (30) catch divergences earlier and more often. Longer exit win
 4. **The 30-bar lookback effect is dominant:** All lb30 configs outperform their lb40 counterparts in PnL and Sharpe.
 5. **Do NOT use exit < 16 bars:** 10-bar exits cut off too many winning trades early, significantly depressing PnL.
 
-### Scripts added this sweep round
-
-| Path | Change |
-|------|--------|
 | `scripts/v73_sweep_dynamic_params.py` | 64-config sweep over target/exits/lookback with parallel execution |
+
+---
+
+## 500 USD Starting Equity Compounding Backtest (Balanced Config)
+
+To simulate trading with a small account (e.g., on DEXs with low fees) and evaluating high leverage/conviction size compounding, we ran a compounding backtest with:
+* **Starting Equity:** $500.00
+* **Base Position Pct:** 50% (`--base-position-pct 0.50`)
+* **Base Target:** 0.5% (dynamically scaled)
+* **Lookback:** 30 bars
+* **Exit Horizon:** 24 volume bars
+* **Stop Pct:** 3%
+
+### Results over 6-Year Full History:
+* **Ending Equity:** **$15,808.70** (**+3,061%** total return)
+* **Win Rate:** **72.62%** (5,469 targets hit, 78 stops hit, 3,112 volume bar exits)
+* **Total PnL:** +$15,309.10
+* **Trades Executed:** 8,659
+* **Sharpe Ratio:** **2.9383**
+* **DSR Passed:** Yes (1.0000)
+
