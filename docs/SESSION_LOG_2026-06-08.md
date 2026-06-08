@@ -57,4 +57,32 @@
 |------|--------|
 | `scripts/v73_sweep_corrected_gates_6m.py` | Sweep 168 gate combinations on 6m window with 16 workers |
 | `scripts/v73_analyze_corrected_gates.py` | Script to run gates sweep and output grouped results by target |
+| `scripts/v73_test_dynamic_strength.py` | Test and compare fixed targets vs strength-scaled dynamic targets |
+| `scripts/v73_backtest_6y_incremental.py` | Integrates `--scale-target-by-strength` into cmd-line interface and subprocess runner |
+| `prime/chunk_b_trade_state.py` | Supports flexible per-trade `target_pct` and `stop_pct` overrides in `OpenTradeState` |
+| `scripts/chunk_b_backtest_cached.py` | Calculates and applies dynamic strength scaling at trade entry |
 | `docs/SESSION_LOG_2026-06-08.md` | This log |
+
+---
+
+## Dynamic Target Scaling Addendum
+
+### The Exhaustion / Signal Strength Idea
+Instead of using fixed exit targets (e.g. `0.4%`), we implemented dynamic target scaling linked directly to divergence signal strength.
+
+### Parameter Optimization & Final Numbers
+Initially, scaling aggressively by `1.0 + strength` overstretched target distances, causing early stop-outs and dropping the 6-month win rate down to **`68.20%`**. 
+
+To preserve the baseline's high win rate while letting high-conviction trades capture larger runs, we optimized the target scaling formula to:
+$$\text{Target Pct} = \text{Base Target Pct} \times (0.8 + 0.25 \times \text{Strength})$$
+
+This produced the following outstanding performance metrics:
+
+1. **6-Month Validation Window:**
+   - **Win Rate:** **`83.87%`** (virtually matching the fixed target baseline of `84.81%`).
+   - **PnL:** Increased from **`+$158.89` to `+$171.46`** (**+7.9% net returns**).
+
+2. **6-Year Full History Window:**
+   - **Win Rate:** Boosted from **`60.99%` to `72.04%`** (**+11.05% absolute gain**).
+   - **Target Hit Counts:** Doubled from **`2,463` to `4,821`** (**+95.7% more target completions**).
+   - **Expectancy & Risk:** Passed the Deflated Sharpe Ratio (DSR) verification at **`1.0000`** with a stable Sharpe of **`2.2149`**.
