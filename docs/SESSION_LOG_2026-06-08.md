@@ -86,3 +86,38 @@ This produced the following outstanding performance metrics:
    - **Win Rate:** Boosted from **`60.99%` to `72.04%`** (**+11.05% absolute gain**).
    - **Target Hit Counts:** Doubled from **`2,463` to `4,821`** (**+95.7% more target completions**).
    - **Expectancy & Risk:** Passed the Deflated Sharpe Ratio (DSR) verification at **`1.0000`** with a stable Sharpe of **`2.2149`**.
+
+---
+
+## Parameter Sweep Addendum (64 variants, 6-month window)
+
+**Script:** `scripts/v73_sweep_dynamic_params.py`
+**Sweep space:** `base_target ∈ [0.3%, 0.4%, 0.5%, 0.6%]` × `exits ∈ [10, 16, 20, 24]` × `lookback ∈ [30, 40, 50, 60]`
+**All configs use:** `--scale-target-by-strength`, `--stop-pct 0.03`, no gates, no time exit.
+
+### Key finding: Lookback 30 + Exit 24 bars is the sweet spot
+Shorter lookbacks (30) catch divergences earlier and more often. Longer exit windows (24 bars) give targets space to hit.
+
+### Top 6-Year Validated Results
+
+| Config | Base Target | Exits | Lookback | 6m WR | 6m PnL | **6y WR** | **6y PnL** | **6y Sharpe** |
+|---|---|---|---|---|---|---|---|---|
+| Fixed baseline | 0.4% | 16 | 40 | 84.81% | $159 | 60.99% | $5,359 | 2.596 |
+| V2 Optimized | 0.4% | 16 | 40 | 83.87% | $171 | 72.04% | $3,777 | 2.215 |
+| **High WR** | 0.3% | 24 | 30 | **93.06%** | $299 | **81.89%** | $4,041 | 1.930 |
+| **Balanced** ⭐ | 0.5% | 24 | 30 | 86.29% | $436 | **72.62%** | **$7,222** | **2.938** |
+| **High PnL** | 0.6% | 24 | 30 | 83.77% | $538 | 68.87% | **$7,654** | **2.970** |
+
+### Conclusions
+
+1. **Best overall (Sharpe + WR balance):** `0.5% target, 24 exits, 30 lookback` → 6y WR 72.62%, Sharpe 2.938, PnL +$7,222.
+2. **Best PnL + Sharpe:** `0.6% target, 24 exits, 30 lookback` → PnL +$7,654, Sharpe 2.970, WR 68.87%.
+3. **Highest win rate:** `0.3% target, 24 exits, 30 lookback` → 6y WR **81.89%** on 10,216 trades (but Sharpe only 1.93 due to fee drag on small targets).
+4. **The 30-bar lookback effect is dominant:** All lb30 configs outperform their lb40 counterparts in PnL and Sharpe.
+5. **Do NOT use exit < 16 bars:** 10-bar exits cut off too many winning trades early, significantly depressing PnL.
+
+### Scripts added this sweep round
+
+| Path | Change |
+|------|--------|
+| `scripts/v73_sweep_dynamic_params.py` | 64-config sweep over target/exits/lookback with parallel execution |
