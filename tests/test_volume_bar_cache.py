@@ -2,7 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from prime.volume_bar_cache import load_cached_bars, write_cached_bars
+from prime.volume_bar_cache import (
+    catalog_cache_path,
+    load_cached_bars,
+    load_catalog_bars,
+    write_cached_bars,
+    write_catalog_bars,
+)
 from prime.volume_bars import VolumeBar
 
 
@@ -86,6 +92,31 @@ class VolumeBarCacheTest(unittest.TestCase):
             archive.write_bytes(b"modified archive content")
 
             self.assertIsNone(load_cached_bars(cache_dir, archive, [100.0]))
+
+    def test_catalog_round_trip_preserves_bars(self):
+        bars = [
+            VolumeBar(
+                start_ts_ns=1,
+                end_ts_ns=2,
+                open=100.0,
+                high=101.0,
+                low=99.5,
+                close=100.5,
+                volume=300.0,
+                buy_volume=180.0,
+                sell_volume=120.0,
+                delta=60.0,
+                cumulative_delta=60.0,
+                ticks=12,
+            )
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            catalog = Path("/catalogs/btcusdt")
+            path = write_catalog_bars(cache_dir, catalog, 300.0, 12345, bars)
+
+            self.assertEqual(path, catalog_cache_path(cache_dir, catalog, 300.0))
+            self.assertEqual(load_catalog_bars(cache_dir, catalog, 300.0), bars)
 
 
 if __name__ == "__main__":

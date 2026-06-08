@@ -14,6 +14,7 @@ from prime.volume_bars import VolumeBar
 
 
 CACHE_VERSION = 1
+CATALOG_CACHE_VERSION = 2
 
 
 def cache_path(cache_dir: Path, archive: Path, thresholds: list[float]) -> Path:
@@ -137,3 +138,102 @@ def _format_threshold(threshold: float) -> str:
     if value.is_integer():
         return str(int(value))
     return str(value).replace(".", "p")
+
+
+def catalog_cache_path(cache_dir: Path, catalog_path: Path, threshold: float) -> Path:
+    """Return the consolidated Tier-1 cache path for a catalog and threshold."""
+    return (
+        Path(cache_dir)
+        / f"{Path(catalog_path).name}.threshold-{_format_threshold(threshold)}"
+        f".v{CATALOG_CACHE_VERSION}.parquet"
+    )
+
+
+def load_catalog_bars(
+    cache_dir: Path,
+    catalog_path: Path,
+    threshold: float,
+) -> list[VolumeBar] | None:
+    """Load consolidated catalog-derived volume bars."""
+    try:
+        import pyarrow.parquet as pq
+    except Exception:
+        return None
+
+    path = catalog_cache_path(cache_dir, catalog_path, threshold)
+    if not path.is_file():
+        return None
+
+    try:
+        records = pq.read_table(path).to_pylist()
+    except Exception:
+        return None
+
+    bars: list[VolumeBar] = []
+    for record in records:
+        if int(record.get("cache_version", 0)) != CATALOG_CACHE_VERSION:
+            return None
+        if float(record.get("threshold_btc", -1.0)) != float(threshold):
+            return None
+        bars.append(
+            VolumeBar(
+                start_ts_ns=int(record["start_ts_ns"]),
+                end_ts_ns=int(record["end_ts_ns"]),
+                open=float(record["open"]),
+                high=float(record["high"]),
+                low=float(record["low"]),
+                close=float(record["close"]),
+                volume=float(record["volume"]),
+                buy_volume=float(record["buy_volume"]),
+                sell_volume=float(record["sell_volume"]),
+                delta=float(record["delta"]),
+                cumulative_delta=float(record["cumulative_delta"]),
+                ticks=int(record["ticks"]),
+            )
+        )
+    return bars
+
+
+def write_catalog_bars(
+    cache_dir: Path,
+    catalog_path: Path,
+    threshold: float,
+    rows_seen: int,
+    bars: list[VolumeBar],
+) -> Path | None:
+    """Write consolidated catalog-derived volume bars."""
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except Exception:
+        return None
+
+    if not bars:
+        return None
+
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    path = catalog_cache_path(cache_dir, catalog_path, threshold)
+    records = []
+    for bar in bars:
+        record = {
+            "cache_version": CATALOG_CACHE_VERSION,
+            "catalog_name": Path(catalog_path).name,
+            "rows_seen": int(rows_seen),
+            "threshold_btc": float(threshold),
+        }
+        record.update(asdict(bar))
+        records.append(record)
+    pq.write_table(pa.Table.from_pylist(records), path, compression="zstd")
+    return path
+
+
+def persist_catalog_bars(
+    cache_dir: Path,
+    catalog_path: Path,
+    threshold: float,
+    rows_seen: int,
+    bars: list[VolumeBar],
+) -> Path | None:
+    """Compatibility alias for callers using the Tier-1 persistence name."""
+    return write_catalog_bars(cache_dir, catalog_path, threshold, rows_seen, bars)

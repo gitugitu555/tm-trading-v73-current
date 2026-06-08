@@ -19,6 +19,8 @@ class OpenTradeState:
     bars_since_entry: int = 0
     max_adverse: float = 0.0
     max_favorable: float = 0.0
+    target_pct: float | None = None
+    stop_pct: float | None = None
 
     @classmethod
     def from_legacy_dict(cls, values: dict) -> "OpenTradeState":
@@ -33,6 +35,8 @@ class OpenTradeState:
             exit_after_ts_ns=int(values["exit_after_ts_ns"]),
             max_adverse=float(values.get("max_adverse", 0.0)),
             max_favorable=float(values.get("max_favorable", 0.0)),
+            target_pct=values.get("target_pct"),
+            stop_pct=values.get("stop_pct"),
         )
 
     def with_excursion(self, price: float) -> "OpenTradeState":
@@ -62,4 +66,6 @@ class OpenTradeState:
             "exit_after_ts_ns": self.exit_after_ts_ns,
             "max_adverse": self.max_adverse,
             "max_favorable": self.max_favorable,
+            "target_pct": self.target_pct,
+            "stop_pct": self.stop_pct,
         }

@@ -57,6 +57,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--invert-signal-side", action="store_true", default=False)
     p.add_argument("--require-entry-delta-alignment", action="store_true", default=False)
     p.add_argument("--approve-only-permission", action="store_true", default=False)
+    p.add_argument("--scale-target-by-strength", action="store_true", default=False)
     p.add_argument(
         "--work-dir",
         type=Path,
@@ -146,6 +147,7 @@ def run_archive_backtest(
     use_time_exit: bool = True,
     require_entry_delta_alignment: bool = False,
     approve_only_permission: bool = False,
+    scale_target_by_strength: bool = False,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -187,6 +189,8 @@ def run_archive_backtest(
         cmd.append("--require-entry-delta-alignment")
     if approve_only_permission:
         cmd.append("--approve-only-permission")
+    if scale_target_by_strength:
+        cmd.append("--scale-target-by-strength")
     proc = subprocess.run(
         cmd,
         cwd=ROOT,
@@ -355,6 +359,7 @@ def main() -> int:
             use_time_exit=args.use_time_exit,
             require_entry_delta_alignment=args.require_entry_delta_alignment,
             approve_only_permission=args.approve_only_permission,
+            scale_target_by_strength=args.scale_target_by_strength,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(

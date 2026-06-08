@@ -91,6 +91,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--starting-equity", type=float, default=None)
     parser.add_argument("--trades-out", type=Path, default=None, help="Write all trades as JSON lines")
     parser.add_argument(
+        "--scale-target-by-strength",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Scale target_pct dynamically by (1.0 + signal_strength)",
+    )
+    parser.add_argument(
         "--exit-after-volume-bars",
         type=int,
         default=None,
@@ -388,20 +394,22 @@ def main() -> int:
                     exit_reason = "CVD_EXIT"
 
             if exit_reason is None and config.use_tpsl:
+                t_pct = open_trade.target_pct if open_trade.target_pct is not None else config.target_pct
+                s_pct = open_trade.stop_pct if open_trade.stop_pct is not None else config.stop_pct
                 if side > 0:
-                    if low <= entry_price * (1 - config.stop_pct):
+                    if low <= entry_price * (1 - s_pct):
                         exit_reason = "STOP"
-                        exit_price = entry_price * (1 - config.stop_pct)
-                    elif high >= entry_price * (1 + config.target_pct):
+                        exit_price = entry_price * (1 - s_pct)
+                    elif high >= entry_price * (1 + t_pct):
                         exit_reason = "TARGET"
-                        exit_price = entry_price * (1 + config.target_pct)
+                        exit_price = entry_price * (1 + t_pct)
                 else:
-                    if high >= entry_price * (1 + config.stop_pct):
+                    if high >= entry_price * (1 + s_pct):
                         exit_reason = "STOP"
-                        exit_price = entry_price * (1 + config.stop_pct)
-                    elif low <= entry_price * (1 - config.target_pct):
+                        exit_price = entry_price * (1 + s_pct)
+                    elif low <= entry_price * (1 - t_pct):
                         exit_reason = "TARGET"
-                        exit_price = entry_price * (1 - config.target_pct)
+                        exit_price = entry_price * (1 - t_pct)
 
             if (
                 exit_reason is None
@@ -709,6 +717,10 @@ def main() -> int:
         direction = signal["side"]
         actual_entry_price = close * (1 + direction * bps)
         notional = equity * permission.permitted_size
+        t_pct = config.target_pct
+        if args.scale_target_by_strength:
+            t_pct = config.target_pct * (1.0 + float(signal.get("strength", 0.0)))
+            
         open_trade = OpenTradeState(
             entry_ts_ns=ts,
             side=signal["side"],
@@ -719,6 +731,8 @@ def main() -> int:
             reason_codes=tuple(record.code for record in permission.chain),
             exit_after_ts_ns=ts + config.hold_ns,
             exit_after_volume_bars=config.exit_after_volume_bars,
+            target_pct=t_pct,
+            stop_pct=config.stop_pct,
         )
 
     # Post backtest calculations

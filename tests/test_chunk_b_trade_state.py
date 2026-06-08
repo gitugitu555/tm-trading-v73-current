@@ -69,6 +69,8 @@ class OpenTradeStateTest(unittest.TestCase):
                 "exit_after_ts_ns",
                 "max_adverse",
                 "max_favorable",
+                "target_pct",
+                "stop_pct",
             },
         )
 
