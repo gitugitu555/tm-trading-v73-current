@@ -35,6 +35,7 @@ from research.manifests import append_manifest_jsonl, wrap_result_payload
 from research.signal_scorecard import SignalEvent, SignalScorecard
 from prime.auction_state import AuctionStateEngine
 from storage.hot_path import assert_nvme_archive, assert_nvme_path, hot_btcusdt_aggtrades_dir
+from features.vpin import VPINEngine, ToxicityState
 
 DEFAULT_DEST = hot_btcusdt_aggtrades_dir()
 CACHE_DIR = Path("results/indicator_cache")
@@ -70,6 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use-vwap-gate", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--vwap-structure-pct", type=float, default=0.003)
     parser.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--use-vpin-gate", action=argparse.BooleanOptionalAction, default=False, help="Use VPIN toxicity gate to block entries")
     parser.add_argument("--use-cvd-quantile-filter", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--cvd-quantile-window", type=int, default=200)
     parser.add_argument("--cvd-quantile", type=float, default=0.75)
@@ -162,6 +164,13 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.01,
         help="Base position size as fraction of equity (default: 0.01)",
+    )
+    parser.add_argument(
+        "--entry-lag-bars",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="Enter on the signal-bar close (0, legacy) or next-bar open (1, lookahead-safe)",
     )
     parser.add_argument(
         "--manifest-jsonl",
@@ -258,6 +267,7 @@ def main() -> int:
         divergence_lookback_bars=args.divergence_lookback_bars,
         htf_flat_quantile=args.htf_flat_quantile,
         use_auction_state_gate=args.use_auction_state_gate,
+        use_vpin_gate=args.use_vpin_gate,
         exit_after_volume_bars=args.exit_after_volume_bars,
         use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
         use_footprint_confluence=args.use_footprint_confluence,
@@ -290,6 +300,8 @@ def main() -> int:
     )
 
     auction_engine = AuctionStateEngine(hysteresis_bars=2)
+    vpin_engine = VPINEngine() if config.use_vpin_gate else None
+    
     needs_volume_bar_history = config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
     needs_cvd_confirm = (
         config.signal_mode == "divergence"
@@ -308,6 +320,7 @@ def main() -> int:
     regime_counts: dict[str, int] = {}
     permission_counts: dict[str, int] = {}
     open_trade: OpenTradeState | None = None
+    pending_entry: dict | None = None
     
     # 5-minute rolling window history for price change (lookback_ns = 300,000,000,000)
     price_history: deque[tuple[int, float]] = deque()
@@ -338,6 +351,25 @@ def main() -> int:
         high = float(row.high)
         low = float(row.low)
 
+        if pending_entry is not None and open_trade is None:
+            direction = int(pending_entry["side"])
+            bps = config.slippage_bps_per_side / 10_000
+            actual_entry_price = float(row.open) * (1 + direction * bps)
+            open_trade = OpenTradeState(
+                entry_ts_ns=int(row.start_ts_ns),
+                side=direction,
+                entry_price=actual_entry_price,
+                notional=equity * float(pending_entry["permitted_size"]),
+                signal_id=str(pending_entry["signal_id"]),
+                permission_verdict=str(pending_entry["permission_verdict"]),
+                reason_codes=tuple(pending_entry["reason_codes"]),
+                exit_after_ts_ns=int(row.start_ts_ns) + config.hold_ns,
+                exit_after_volume_bars=config.exit_after_volume_bars,
+                target_pct=float(pending_entry["target_pct"]),
+                stop_pct=config.stop_pct,
+            )
+            pending_entry = None
+
         htf_change = 0.0
         if needs_volume_bar_history:
             assert bars is not None
@@ -361,6 +393,11 @@ def main() -> int:
 
             htf_change = htf_change_at(bars, bar_obj.end_ts_ns, bar_obj.cumulative_delta)
             htf_changes_history.append(abs(htf_change))
+
+        # Update VPIN engine
+        vpin_snap = None
+        if vpin_engine is not None:
+            vpin_snap = vpin_engine.update_volume_bar(float(row.buy_volume), float(row.sell_volume))
 
         # Update rolling price history
         price_history.append((ts, close))
@@ -457,6 +494,10 @@ def main() -> int:
                 open_trade = None
                 if needs_cvd_confirm:
                     cvd_prev_5m = float(row.cvd_5m)
+                if args.entry_lag_bars == 0:
+                    continue
+            if args.entry_lag_bars == 1:
+                # In lagged-entry mode, only skip while a trade is still open.
                 continue
 
         # Classify regime
@@ -720,29 +761,45 @@ def main() -> int:
             signal_scorecard.record_drop(f"permission_{permission.verdict}")
             continue
 
-        bps = config.slippage_bps_per_side / 10_000
-        direction = signal["side"]
-        actual_entry_price = close * (1 + direction * bps)
-        notional = equity * permission.permitted_size
+        # Check VPIN toxicity
+        if vpin_engine is not None and vpin_snap is not None:
+            if vpin_snap.toxicity_state in {ToxicityState.HIGH_TOXICITY}:
+                signal_scorecard.record_drop("vpin_toxicity")
+                continue
+
         t_pct = config.target_pct
         if args.scale_target_by_strength:
             # Scale target fractionally based on signal strength to allow high conviction signals to run
             # but preserve a high win rate by not over-extending targets for standard/weaker signals.
             t_pct = config.target_pct * (0.8 + 0.25 * float(signal.get("strength", 0.0)))
-            
-        open_trade = OpenTradeState(
-            entry_ts_ns=ts,
-            side=signal["side"],
-            entry_price=actual_entry_price,
-            notional=notional,
-            signal_id=signal["id"],
-            permission_verdict=permission.verdict,
-            reason_codes=tuple(record.code for record in permission.chain),
-            exit_after_ts_ns=ts + config.hold_ns,
-            exit_after_volume_bars=config.exit_after_volume_bars,
-            target_pct=t_pct,
-            stop_pct=config.stop_pct,
-        )
+
+        entry = {
+            "side": signal["side"],
+            "permitted_size": permission.permitted_size,
+            "signal_id": signal["id"],
+            "permission_verdict": permission.verdict,
+            "reason_codes": tuple(record.code for record in permission.chain),
+            "target_pct": t_pct,
+        }
+        if args.entry_lag_bars == 1:
+            pending_entry = entry
+        else:
+            bps = config.slippage_bps_per_side / 10_000
+            direction = signal["side"]
+            actual_entry_price = close * (1 + direction * bps)
+            open_trade = OpenTradeState(
+                entry_ts_ns=ts,
+                side=direction,
+                entry_price=actual_entry_price,
+                notional=equity * permission.permitted_size,
+                signal_id=signal["id"],
+                permission_verdict=permission.verdict,
+                reason_codes=entry["reason_codes"],
+                exit_after_ts_ns=ts + config.hold_ns,
+                exit_after_volume_bars=config.exit_after_volume_bars,
+                target_pct=t_pct,
+                stop_pct=config.stop_pct,
+            )
 
     # Post backtest calculations
     returns = [trade.return_pct for trade in trades]
@@ -790,6 +847,9 @@ def main() -> int:
                 handle.write("\n")
 
     report_dict = asdict(report)
+    report_dict["entry_lag_bars"] = args.entry_lag_bars
+    report_dict["same_bar_entry"] = args.entry_lag_bars == 0
+    report_dict["lookahead_safe"] = args.entry_lag_bars == 1
     signal_only = signal_scorecard.finalize(bar_closes)
     report_dict["signal_scorecard"] = signal_only
     report_dict["trade_scorecard"] = {

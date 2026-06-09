@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--require-entry-delta-alignment", action="store_true", default=False)
     p.add_argument("--approve-only-permission", action="store_true", default=False)
     p.add_argument("--scale-target-by-strength", action="store_true", default=False)
+    p.add_argument("--entry-lag-bars", type=int, choices=(0, 1), default=1)
     p.add_argument(
         "--work-dir",
         type=Path,
@@ -150,6 +151,7 @@ def run_archive_backtest(
     approve_only_permission: bool = False,
     scale_target_by_strength: bool = False,
     base_position_pct: float = 0.01,
+    entry_lag_bars: int = 1,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -180,6 +182,8 @@ def run_archive_backtest(
         str(starting_equity),
         "--base-position-pct",
         str(base_position_pct),
+        "--entry-lag-bars",
+        str(entry_lag_bars),
         "--trades-out",
         str(trades_out),
     ]
@@ -286,6 +290,15 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
             "win_rate": round(wins / len(all_trades), 4) if all_trades else 0.0,
             "total_pnl": round(sum(pnls), 2),
         },
+        "entry_lag_bars": (
+            archive_reports[0]["report"].get("entry_lag_bars", 0) if archive_reports else 0
+        ),
+        "same_bar_entry": (
+            archive_reports[0]["report"].get("same_bar_entry", True) if archive_reports else True
+        ),
+        "lookahead_safe": (
+            archive_reports[0]["report"].get("lookahead_safe", False) if archive_reports else False
+        ),
     }
 
 
@@ -365,6 +378,7 @@ def main() -> int:
             approve_only_permission=args.approve_only_permission,
             scale_target_by_strength=args.scale_target_by_strength,
             base_position_pct=args.base_position_pct,
+            entry_lag_bars=args.entry_lag_bars,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(

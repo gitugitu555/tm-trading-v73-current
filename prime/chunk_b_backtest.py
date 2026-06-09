@@ -77,6 +77,7 @@ class ChunkBBacktestConfig:
     use_session_extreme_gate: bool = True
     session_extreme_pct: float = 0.003
     use_auction_state_gate: bool = False
+    use_vpin_gate: bool = False
     volume_bar_threshold: float = 300.0
     divergence_lookback_bars: int = 40
     htf_flat_quantile: float = 0.25

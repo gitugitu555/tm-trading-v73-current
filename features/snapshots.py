@@ -31,6 +31,8 @@ class FeatureSnapshotBuilder:
         self._last_book: BookSnapshot | None = None
         self._last_spoof_regime = "NONE"
         self._last_iceberg_side = "NONE"
+        self._last_spoof_events = []
+        self._last_iceberg_events = []
 
     def update_book(self, book: BookSnapshot) -> None:
         spoof_events = self.spoofing.update(
@@ -43,6 +45,8 @@ class FeatureSnapshotBuilder:
             self._last_spoof_regime = "SPOOFING_ACTIVE"
         if iceberg_events:
             self._last_iceberg_side = iceberg_events[-1].side
+        self._last_spoof_events = spoof_events
+        self._last_iceberg_events = iceberg_events
         self._last_book = book
 
     def update_trade(self, trade: SignedTrade) -> FeatureSnapshot:
@@ -62,8 +66,8 @@ class FeatureSnapshotBuilder:
         whale = self.whale.compute(
             large_print=large_print,
             book_imbalance=book_imbalance,
-            spoofing_events=[],
-            iceberg_events=[],
+            spoofing_events=self._last_spoof_events,
+            iceberg_events=self._last_iceberg_events,
         )
         reason_codes = tuple(
             code

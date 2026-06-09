@@ -1,8 +1,4 @@
-"""Pure deterministic feature engines.
-
-Canonical hot-path engines live in ``prime/``; use ``features.prime_adapters`` when
-importing CVD/footprint from legacy paths during consolidation.
-"""
+"""Pure deterministic feature engines."""
 
 from .absorption import AbsorptionEngine
 from .cvd import CVDEngine
@@ -11,6 +7,7 @@ from .footprint import FootprintEngine
 from .iceberg import IcebergDetector
 from .l2_imbalance import OrderBookImbalanceEngine
 from .large_prints import LargePrintDetector
+from .mlofi import MLOFIEngine
 from .microprice import microprice
 from .spoofing import SpoofingDetector
 from .trade_signing import TradeSigner, bvc_classify
@@ -24,6 +21,7 @@ __all__ = [
     "FootprintEngine",
     "IcebergDetector",
     "LargePrintDetector",
+    "MLOFIEngine",
     "OrderBookImbalanceEngine",
     "SpoofingDetector",
     "TradeSigner",

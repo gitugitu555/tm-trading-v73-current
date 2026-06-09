@@ -8,6 +8,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_HOT_ROOT = Path(os.environ.get("TM_DATA_HOT_ROOT", REPO_ROOT / "data/raw"))
 DEFAULT_COLD_ROOT = Path(os.environ.get("TM_DATA_COLD_ROOT", "/mnt/seagate/tm-trading-v555/data/raw"))
+DEFAULT_CRYPTOHFTDATA_HOT_ROOT = Path(
+    os.environ.get("TM_CRYPTOHFTDATA_HOT_ROOT", REPO_ROOT / "data/parquet")
+)
 
 BTCUSDT_AGGTRADES_6Y = (
     DEFAULT_HOT_ROOT / "binance/spot/aggTrades/BTCUSDT/2020-05-22_to_2026-05-21"
@@ -58,4 +61,15 @@ def hot_btcusdt_aggtrades_dir() -> Path:
     path = assert_nvme_path(BTCUSDT_AGGTRADES_6Y, label="BTCUSDT aggTrades hot path")
     if not path.is_dir():
         raise FileNotFoundError(f"Hot dataset directory missing: {path}")
+    return path
+
+
+def hot_cryptohftdata_orderbook_dir(*, exchange: str = "binance_futures", symbol: str = "BTCUSDT") -> Path:
+    """Canonical orderbook parquet directory on NVMe."""
+    path = assert_nvme_path(
+        DEFAULT_CRYPTOHFTDATA_HOT_ROOT / exchange / "orderbook" / symbol,
+        label=f"{exchange} {symbol} L2 hot path",
+    )
+    if not path.is_dir():
+        raise FileNotFoundError(f"Hot L2 dataset directory missing: {path}")
     return path

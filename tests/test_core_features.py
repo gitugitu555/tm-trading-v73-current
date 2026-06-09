@@ -5,6 +5,7 @@ from features.cvd import CVDEngine
 from features.delta import DeltaEngine
 from features.footprint import FootprintEngine
 from features.l2_imbalance import OrderBookImbalanceEngine
+from features.mlofi import MLOFIEngine
 from features.microprice import microprice
 from features.vpin import VPINEngine
 from tests.helpers import trade
@@ -37,11 +38,23 @@ class CoreFeatureTest(unittest.TestCase):
         self.assertEqual(engine.update(trade(size=3.0, side="BUY")), 1.0)
         self.assertEqual(engine.update(trade(size=1.0, side="SELL")), 0.5)
 
+    def test_vpin_volume_bar_snapshot(self):
+        engine = VPINEngine()
+        self.assertEqual(engine.update_volume_bar(3.0, 1.0).vpin_level, 0.5)
+        self.assertEqual(engine.snapshot.vpin_level, 0.5)
+
     def test_microprice_and_l2_imbalance(self):
         bids = [(99.0, 10.0), (98.5, 5.0)]
         asks = [(101.0, 2.0), (101.5, 5.0)]
         self.assertGreater(microprice(bids, asks), 100.0)
         self.assertGreater(OrderBookImbalanceEngine().update(bids, asks), 0.0)
+
+    def test_mlofi_weighted_aggregate(self):
+        bids = [(100.0, 10.0), (99.5, 8.0), (99.0, 6.0)]
+        asks = [(100.5, 2.0), (101.0, 3.0), (101.5, 4.0)]
+        snap = MLOFIEngine(max_levels=3).update(bids, asks)
+        self.assertGreater(snap.mlofi_weighted_aggregate, 0.0)
+        self.assertEqual(snap.levels_used, 3)
 
     def test_absorption_detects_bid_absorption(self):
         engine = AbsorptionEngine(window=3, delta_threshold=5.0, max_price_move=1.0)
