@@ -7,7 +7,10 @@ from features.footprint import FootprintEngine
 from features.l2_imbalance import OrderBookImbalanceEngine
 from features.mlofi import MLOFIEngine
 from features.microprice import microprice
+from features.snapshots import FeatureSnapshotBuilder
 from features.vpin import VPINEngine
+from core.types import BookSnapshot
+from tests.helpers import ts
 from tests.helpers import trade
 
 
@@ -48,6 +51,21 @@ class CoreFeatureTest(unittest.TestCase):
         asks = [(101.0, 2.0), (101.5, 5.0)]
         self.assertGreater(microprice(bids, asks), 100.0)
         self.assertGreater(OrderBookImbalanceEngine().update(bids, asks), 0.0)
+
+    def test_feature_snapshot_builder_emits_queue_fields(self):
+        builder = FeatureSnapshotBuilder()
+        book = BookSnapshot(
+            ts_event=ts(),
+            exchange="BINANCE",
+            symbol="BTCUSDT",
+            bids=((100.0, 10.0), (99.5, 8.0), (99.0, 6.0)),
+            asks=((100.5, 2.0), (101.0, 3.0), (101.5, 4.0)),
+        )
+        builder.update_book(book)
+        snapshot = builder.update_trade(trade(price=100.25, size=1.0, side="BUY"))
+        self.assertIsNotNone(snapshot.queue_imbalance_top1)
+        self.assertIsNotNone(snapshot.queue_pressure_score)
+        self.assertIsNotNone(snapshot.microprice_drift_bps)
 
     def test_mlofi_weighted_aggregate(self):
         bids = [(100.0, 10.0), (99.5, 8.0), (99.0, 6.0)]

@@ -35,6 +35,7 @@ from research.manifests import append_manifest_jsonl, wrap_result_payload
 from research.signal_scorecard import SignalEvent, SignalScorecard
 from features.market_profile import MarketProfileEngine
 from features.mlofi import MLOFIEngine
+from features.atr_context import ATRContextEngine
 from features.anti_patterns import AntiPatternEngine
 from prime.auction_state import AuctionStateEngine
 from risk.risk_state import RiskStateEngine
@@ -335,6 +336,7 @@ def main() -> int:
         if needs_volume_bar_history or config.use_market_profile_gate or config.use_anti_pattern_gate
         else None
     )
+    atr_context_engine = ATRContextEngine() if needs_volume_bar_history or config.use_market_profile_gate else None
     mlofi_engine = MLOFIEngine(max_levels=10, zscore_window=200)
     anti_pattern_engine = (
         AntiPatternEngine() if needs_volume_bar_history or config.use_anti_pattern_gate else None
@@ -980,6 +982,20 @@ def main() -> int:
             "can_trade_more": profile.can_trade_more,
             "profile_target_lvn": profile.profile_target_lvn,
         }
+        if atr_context_engine is not None:
+            atr_context = atr_context_engine.update(list(bars), current_price=float(df.iloc[-1]["close"]))
+            report_dict["atr_context"] = {
+                "atr_current": atr_context.atr_current,
+                "atr_percentile": atr_context.atr_percentile,
+                "atr_used_pct": atr_context.atr_used_pct,
+                "session_range": atr_context.session_range,
+                "range_remaining": atr_context.range_remaining,
+                "realized_volatility": atr_context.realized_volatility,
+                "trend_stack": atr_context.trend_stack,
+                "trend_alignment": atr_context.trend_alignment,
+                "can_trade_more": atr_context.can_trade_more,
+                "bar_count": atr_context.bar_count,
+            }
     report_dict["mlofi_snapshot"] = {
         "mlofi_l1": mlofi_engine.snapshot.mlofi_l1,
         "mlofi_l3": mlofi_engine.snapshot.mlofi_l3,

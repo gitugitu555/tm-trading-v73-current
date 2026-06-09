@@ -9,8 +9,10 @@ from .iceberg import IcebergDetector
 from .l2_imbalance import OrderBookImbalanceEngine
 from .large_prints import LargePrintDetector
 from .anti_patterns import AntiPatternEngine
+from .atr_context import ATRContextEngine
 from .mlofi import MLOFIEngine
 from .microprice import microprice
+from .queue_imbalance import QueueImbalanceEngine
 from .spoofing import SpoofingDetector
 from .trade_signing import TradeSigner, bvc_classify
 from .vpin import VPINEngine
@@ -25,8 +27,10 @@ __all__ = [
     "IcebergDetector",
     "LargePrintDetector",
     "AntiPatternEngine",
+    "ATRContextEngine",
     "MLOFIEngine",
     "OrderBookImbalanceEngine",
+    "QueueImbalanceEngine",
     "SpoofingDetector",
     "TradeSigner",
     "VPINEngine",

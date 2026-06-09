@@ -49,9 +49,11 @@ class V84BacktestSmokeTest(unittest.TestCase):
         payload = json.loads(text[start:])
         report = payload["report"]
         self.assertIn("market_profile", report)
+        self.assertIn("atr_context", report)
         self.assertIn("mlofi_snapshot", report)
         self.assertIn("shadow_gate_counts", report)
         self.assertIn("profile_type", report["market_profile"])
+        self.assertIn("trend_stack", report["atr_context"])
         self.assertIn("mlofi_zscore", report["mlofi_snapshot"])
         self.assertIn("anti_pattern_block", report["shadow_gate_counts"])
 

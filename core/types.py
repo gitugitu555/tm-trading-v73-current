@@ -93,6 +93,11 @@ class FeatureSnapshot:
     vpin: float = 0.0
     microprice: float | None = None
     book_imbalance: float = 0.0
+    queue_imbalance_top1: float | None = None
+    queue_imbalance_top5: float | None = None
+    queue_imbalance_top10: float | None = None
+    queue_pressure_score: float | None = None
+    microprice_drift_bps: float | None = None
     absorption: str = "NONE"
     spoof_regime: str = "NONE"
     iceberg_side: str = "NONE"
@@ -113,6 +118,11 @@ class FeatureSnapshot:
             "vpin": self.vpin,
             "microprice": self.microprice,
             "book_imbalance": self.book_imbalance,
+            "queue_imbalance_top1": self.queue_imbalance_top1,
+            "queue_imbalance_top5": self.queue_imbalance_top5,
+            "queue_imbalance_top10": self.queue_imbalance_top10,
+            "queue_pressure_score": self.queue_pressure_score,
+            "microprice_drift_bps": self.microprice_drift_bps,
             "absorption": self.absorption,
             "spoof_regime": self.spoof_regime,
             "iceberg_side": self.iceberg_side,

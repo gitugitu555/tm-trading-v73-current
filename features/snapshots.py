@@ -11,6 +11,7 @@ from features.iceberg import IcebergDetector
 from features.l2_imbalance import OrderBookImbalanceEngine
 from features.large_prints import LargePrintDetector
 from features.microprice import microprice
+from features.queue_imbalance import QueueImbalanceEngine
 from features.spoofing import SpoofingDetector
 from features.vpin import VPINEngine
 from features.whale import WhalePressureEngine
@@ -24,6 +25,7 @@ class FeatureSnapshotBuilder:
         self.vpin = VPINEngine()
         self.absorption = AbsorptionEngine(max_price_move=tick_size * 2)
         self.imbalance = OrderBookImbalanceEngine()
+        self.queue_imbalance = QueueImbalanceEngine()
         self.large_prints = LargePrintDetector()
         self.spoofing = SpoofingDetector()
         self.iceberg = IcebergDetector()
@@ -59,9 +61,11 @@ class FeatureSnapshotBuilder:
 
         book_imbalance = 0.0
         micro = None
+        queue_snapshot = None
         if self._last_book is not None:
             book_imbalance = self.imbalance.update(self._last_book.bids, self._last_book.asks)
-            micro = microprice(self._last_book.bids, self._last_book.asks)
+            queue_snapshot = self.queue_imbalance.update(self._last_book.bids, self._last_book.asks)
+            micro = queue_snapshot.microprice if queue_snapshot is not None else microprice(self._last_book.bids, self._last_book.asks)
 
         whale = self.whale.compute(
             large_print=large_print,
@@ -87,6 +91,15 @@ class FeatureSnapshotBuilder:
             vpin=vpin_value,
             microprice=micro,
             book_imbalance=book_imbalance,
+            queue_imbalance_top1=queue_snapshot.top1 if queue_snapshot is not None else None,
+            queue_imbalance_top5=queue_snapshot.top5 if queue_snapshot is not None else None,
+            queue_imbalance_top10=queue_snapshot.top10 if queue_snapshot is not None else None,
+            queue_pressure_score=(
+                queue_snapshot.weighted_imbalance if queue_snapshot is not None else None
+            ),
+            microprice_drift_bps=(
+                queue_snapshot.microprice_drift_bps if queue_snapshot is not None else None
+            ),
             absorption=absorption,
             spoof_regime=self._last_spoof_regime,
             iceberg_side=self._last_iceberg_side,
