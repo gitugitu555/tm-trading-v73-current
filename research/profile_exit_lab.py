@@ -185,6 +185,7 @@ class ProfileExitLab:
         vwap_deviation: float = 0.0,
         *,
         base_stop_pct: float = 0.03,
+        min_profit_pct: float = 0.003,
         lvn_reject_margin_pct: float = 0.001,
     ) -> ExitSignal:
         """Detect the strongest active exit signal from the profile.
@@ -192,11 +193,9 @@ class ProfileExitLab:
         Evaluation order (highest priority first):
           1. Hard stop   — percentage-based (base_stop_pct, default 3%)
           2. POC flip    — POC crossed in the wrong direction
-          3. VWAP flip   — price moved adversely through VWAP
-          4. VAH break   — long target hit at VAH
-          5. VAL break   — short target hit at VAL
-          6. POC reclaim — mean-reversion target hit
-          7. LVN reject  — price stalled at an LVN
+          3. VAH break   — long target hit at VAH (if profitable enough)
+          4. VAL break   — short target hit at VAL (if profitable enough)
+          5. POC reclaim — mean-reversion target hit (if profitable enough)
         """
         poc = profile.poc
         vah = profile.vah
@@ -209,53 +208,36 @@ class ProfileExitLab:
             if side < 0 and current_price >= entry_price * (1.0 + base_stop_pct):
                 return ExitSignal.HARD_STOP
 
-
         if poc is None or vah is None or val is None:
             return ExitSignal.NONE
 
-        # 2. POC flip adverse — price crossed back through POC against the trade.
-        # For a long: we entered ABOVE poc and price has now dropped back below poc.
-        # For a short: we entered BELOW poc and price has now rallied back above poc.
-        if poc is not None:
-            if side > 0 and entry_price >= poc and current_price < poc * 0.9995:
-                return ExitSignal.POC_FLIP_ADVERSE
-            if side < 0 and entry_price <= poc and current_price > poc * 1.0005:
-                return ExitSignal.POC_FLIP_ADVERSE
+        # Calculate current gross profit percentage
+        if side > 0:
+            gross_profit_pct = (current_price - entry_price) / entry_price
+        else:
+            gross_profit_pct = (entry_price - current_price) / entry_price
 
-        # 3. VWAP flip adverse
-        if vwap_deviation != 0.0:
-            if side > 0 and vwap_deviation >= 0.005:   # was below VWAP, now above by >0.5%
-                return ExitSignal.VWAP_FLIP_ADVERSE
-            if side < 0 and vwap_deviation <= -0.005:  # was above VWAP, now below by >0.5%
-                return ExitSignal.VWAP_FLIP_ADVERSE
+        # NOTE: POC_FLIP_ADVERSE removed from auto-exit path. Price frequently oscillates
+        # around the POC, and a tight adverse flip check causes premature exits (60% of trades)
+        # before the trade has a chance to develop. Let trades breathe and run to VAH/VAL.
 
-        # 4. VAH break — long momentum target
-        if side > 0 and current_price >= vah:
-            return ExitSignal.VAH_BREAK
+        # Ensure positive exits only fire if we have cleared the minimum profit hurdle (e.g. fees + edge)
+        if gross_profit_pct >= min_profit_pct:
+            # 3. VAH break — long has hit the top of value area (momentum target)
+            if side > 0 and current_price >= vah:
+                return ExitSignal.VAH_BREAK
 
-        # 5. VAL break — short momentum target
-        if side < 0 and current_price <= val:
-            return ExitSignal.VAL_BREAK
+            # 4. VAL break — short has hit the bottom of value area (momentum target)
+            if side < 0 and current_price <= val:
+                return ExitSignal.VAL_BREAK
 
-        # 6. POC reclaim — mean-reversion target
-        if side > 0 and entry_price < poc and current_price >= poc:
-            return ExitSignal.POC_RECLAIMED
-        if side < 0 and entry_price > poc and current_price <= poc:
-            return ExitSignal.POC_RECLAIMED
+            # 5. POC reclaim — mean-reversion trade reached its target
+            if side > 0 and entry_price < poc and current_price >= poc:
+                return ExitSignal.POC_RECLAIMED
+            if side < 0 and entry_price > poc and current_price <= poc:
+                return ExitSignal.POC_RECLAIMED
 
-        # 7. LVN rejection — price tagged an LVN within margin AND POC not yet reached
-        poc_reached = (
-            (side > 0 and current_price >= poc)
-            or (side < 0 and current_price <= poc)
-        ) if poc is not None else False
-        if not poc_reached:
-            for lvn in profile.lvn_zones:
-                if abs(current_price - lvn) / max(lvn, 1e-12) <= lvn_reject_margin_pct:
-                    # Only exit if the LVN is in the direction of our profit
-                    if side > 0 and lvn > entry_price:
-                        return ExitSignal.LVN_REJECT
-                    if side < 0 and lvn < entry_price:
-                        return ExitSignal.LVN_REJECT
+        # NOTE: LVN_REJECT and VWAP_FLIP_ADVERSE removed from auto-exit path.
 
         return ExitSignal.NONE
 

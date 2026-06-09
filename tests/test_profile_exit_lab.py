@@ -110,9 +110,10 @@ class TestExitSignalDetection(unittest.TestCase):
         )
         self.assertEqual(sig, ExitSignal.VAL_BREAK)
 
-    def test_vwap_flip_adverse_long(self):
-        profile = _make_profile(atr=0.1)
+    def test_vwap_flip_adverse_not_fired(self):
+        profile = _make_profile(poc=101.0, atr=0.1)
         # Long, price has crossed VWAP adversely (deviation now > 0.5%)
+        # But VWAP_FLIP_ADVERSE was removed from auto-exit path, so it should return NONE
         sig = self.lab.detect_exit_signal(
             current_price=100.0,
             entry_price=99.0,
@@ -120,7 +121,7 @@ class TestExitSignalDetection(unittest.TestCase):
             profile=profile,
             vwap_deviation=0.006,   # price is 0.6% above VWAP → adverse for long
         )
-        self.assertEqual(sig, ExitSignal.VWAP_FLIP_ADVERSE)
+        self.assertEqual(sig, ExitSignal.NONE)
 
     def test_none_when_no_signal(self):
         profile = _make_profile(poc=100.5, vah=102.0, val=98.0, atr=0.1)
@@ -134,11 +135,10 @@ class TestExitSignalDetection(unittest.TestCase):
         )
         self.assertEqual(sig, ExitSignal.NONE)
 
-    def test_lvn_reject(self):
-        # Entry below poc. LVN at 100.7, between entry and poc (100.5 is poc).
-        # current = 100.7 which is above entry (99.0) but hasn't reached poc yet
-        # (poc = 100.5 and current > poc so POC_RECLAIMED would fire first).
-        # Use poc=101.0 so LVN at 100.7 is between entry and poc.
+    def test_lvn_reject_not_fired(self):
+        # LVN_REJECT was removed from detect_exit_signal because at 24-bar volume-bar
+        # resolution, LVN zones are touched constantly (67% of exits were false LVN
+        # triggers). The signal is kept in the enum but no longer auto-exits.
         profile = _make_profile(
             poc=101.0, vah=103.0, val=97.0, atr=0.1,
             lvn_zones=(100.7,),
@@ -149,7 +149,8 @@ class TestExitSignalDetection(unittest.TestCase):
             side=1,
             profile=profile,
         )
-        self.assertEqual(sig, ExitSignal.LVN_REJECT)
+        # LVN touch should NOT trigger an exit — price hasn't hit POC/VAH yet
+        self.assertEqual(sig, ExitSignal.NONE)
 
 
 class TestEvaluateExit(unittest.TestCase):
