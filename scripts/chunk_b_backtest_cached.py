@@ -41,6 +41,7 @@ from prime.auction_state import AuctionStateEngine
 from risk.risk_state import RiskStateEngine
 from storage.hot_path import assert_nvme_archive, assert_nvme_path, hot_btcusdt_aggtrades_dir
 from features.vpin import VPINEngine, ToxicityState
+from research.profile_exit_lab import ProfileExitLab, ExitSignal, score_entry
 
 DEFAULT_DEST = hot_btcusdt_aggtrades_dir()
 CACHE_DIR = Path("results/indicator_cache")
@@ -186,6 +187,24 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("results/manifest.jsonl"),
         help="Append experiment/result manifest records",
+    )
+    parser.add_argument(
+        "--use-profile-exit",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use POC/VWAP/VAH/VAL signal-driven exits (lets trades run longer)",
+    )
+    parser.add_argument(
+        "--min-entry-score",
+        type=float,
+        default=0.0,
+        help="Minimum ProfileExitLab entry quality score [0-1] to take a trade (0=disabled)",
+    )
+    parser.add_argument(
+        "--vwap-entry-side-filter",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Require VWAP side alignment at entry (long below VWAP, short above VWAP)",
     )
     return parser.parse_args()
 
@@ -341,6 +360,7 @@ def main() -> int:
     anti_pattern_engine = (
         AntiPatternEngine() if needs_volume_bar_history or config.use_anti_pattern_gate else None
     )
+    profile_exit_lab = ProfileExitLab() if args.use_profile_exit else None
     risk_state_engine = RiskStateEngine() if needs_volume_bar_history or config.use_risk_state_gate else None
 
     quality = DataQualitySnapshot(
@@ -374,6 +394,7 @@ def main() -> int:
     pending_signal: dict | None = None
     cvd_confirm_count = 0
     cvd_prev_5m = 0.0
+    profile_snapshot = None  # updated every bar when market_profile_engine is active
 
     horizon_bars = args.exit_after_volume_bars or args.signal_horizon_bars
     signal_scorecard = SignalScorecard(horizon_bars=horizon_bars)
@@ -453,6 +474,14 @@ def main() -> int:
         if vpin_engine is not None:
             vpin_snap = vpin_engine.update_volume_bar(float(row.buy_volume), float(row.sell_volume))
 
+        # ---- Update profile snapshot every bar (fixes can_trade_more always False) ----
+        # Use a short session window (24 bars ≈ one trading session on volume bars)
+        # rather than 120 bars which inflates session_range >> ATR and always blocks.
+        if market_profile_engine is not None and bars is not None and len(bars) >= 2:
+            session_window_bars = min(24, len(bars))
+            session_window = list(bars)[-session_window_bars:]
+            profile_snapshot = market_profile_engine.update(session_window, current_price=close)
+
         # Update rolling price history
         price_history.append((ts, close))
         cutoff_ns = ts - 300_000_000_000
@@ -491,6 +520,22 @@ def main() -> int:
                 if (side < 0 and row.cvd_5m > 0) or (side > 0 and row.cvd_5m < 0):
                     exit_reason = "CVD_EXIT"
 
+            # ---- Profile-signal-driven exit (V8.5) ----
+            if exit_reason is None and profile_exit_lab is not None and profile_snapshot is not None:
+                vwap_dev = float(getattr(row, "vwap_deviation", 0.0))
+                trade_stop_pct = open_trade.stop_pct if open_trade.stop_pct is not None else config.stop_pct
+                sig = profile_exit_lab.detect_exit_signal(
+                    current_price=close,
+                    entry_price=entry_price,
+                    side=side,
+                    profile=profile_snapshot,
+                    vwap_deviation=vwap_dev,
+                    base_stop_pct=trade_stop_pct,
+                )
+                if sig != ExitSignal.NONE:
+                    exit_reason = f"PROFILE_{sig.value}"
+                    exit_price = close
+
             if exit_reason is None and config.use_tpsl:
                 t_pct = open_trade.target_pct if open_trade.target_pct is not None else config.target_pct
                 s_pct = open_trade.stop_pct if open_trade.stop_pct is not None else config.stop_pct
@@ -513,6 +558,12 @@ def main() -> int:
                 exit_reason is None
                 and open_trade.exit_after_volume_bars is not None
                 and open_trade.bars_since_entry >= open_trade.exit_after_volume_bars
+                # In profile-exit mode, bar-count is a safety net — only enforce if
+                # bars_since_entry exceeds 3× the normal horizon (trades can run longer)
+                and (
+                    not args.use_profile_exit
+                    or open_trade.bars_since_entry >= open_trade.exit_after_volume_bars * 3
+                )
             ):
                 exit_reason = "BAR_EXIT"
             if exit_reason is None and config.use_time_exit and ts >= open_trade.exit_after_ts_ns:
@@ -819,10 +870,7 @@ def main() -> int:
             signal_scorecard.record_drop(f"permission_{permission.verdict}")
             continue
 
-        profile_snapshot = None
-        if market_profile_engine is not None and bars is not None and len(bars) > 0:
-            window = list(bars)[-max(1, config.market_profile_lookback_bars):]
-            profile_snapshot = market_profile_engine.update(window, current_price=close)
+        # profile_snapshot is now kept fresh on every bar (see per-bar update above)
 
         if anti_pattern_engine is not None:
             anti_snapshot = anti_pattern_engine.evaluate(
@@ -846,14 +894,20 @@ def main() -> int:
 
         if market_profile_engine is not None and profile_snapshot is not None:
             if config.use_market_profile_gate:
-                if not profile_snapshot.can_trade_more:
+                # can_trade_more is based on session_range vs ATR — only valid for time-based
+                # bars (hourly/daily sessions). For volume bars, session_range >> per-bar ATR
+                # (e.g. atr_used_pct = 5000%), so this check is permanently False and blocks
+                # all entries. Skip it for volume-bar strategies.
+                if not uses_volume_bar_edge and not profile_snapshot.can_trade_more:
                     shadow_gate_counts["market_profile_exhaustion_block"] = shadow_gate_counts.get("market_profile_exhaustion_block", 0) + 1
                     signal_scorecard.record_drop("market_profile_exhaustion")
                     continue
+                # Value-area context: avoid weak signals in the middle of value area
                 if profile_snapshot.current_value_context == "IN_VALUE" and float(signal.get("strength", 0.0)) < 0.45:
                     shadow_gate_counts["market_profile_mid_value_block"] = shadow_gate_counts.get("market_profile_mid_value_block", 0) + 1
                     signal_scorecard.record_drop("market_profile_mid_value")
                     continue
+
 
         # Check VPIN toxicity
         if vpin_engine is not None and vpin_snap is not None:
@@ -886,6 +940,31 @@ def main() -> int:
             # Scale target fractionally based on signal strength to allow high conviction signals to run
             # but preserve a high win rate by not over-extending targets for standard/weaker signals.
             t_pct = config.target_pct * (0.8 + 0.25 * float(signal.get("strength", 0.0)))
+
+        # ---- V8.5: POC/VWAP entry quality gate ----
+        entry_score_scalar = 1.0
+        if profile_exit_lab is not None and profile_snapshot is not None:
+            vwap_dev = float(getattr(row, "vwap_deviation", 0.0))
+            eq = score_entry(
+                entry_price=close,
+                side=int(signal["side"]),
+                profile=profile_snapshot,
+                vwap_deviation=vwap_dev,
+            )
+            # Hard filter: VWAP side misalignment
+            if args.vwap_entry_side_filter and not eq.vwap_side_aligned:
+                shadow_gate_counts["vwap_entry_side_block"] = shadow_gate_counts.get("vwap_entry_side_block", 0) + 1
+                signal_scorecard.record_drop("vwap_entry_side_misaligned")
+                continue
+            # Soft filter: minimum entry quality score
+            if args.min_entry_score > 0.0 and eq.entry_score < args.min_entry_score:
+                shadow_gate_counts["entry_score_block"] = shadow_gate_counts.get("entry_score_block", 0) + 1
+                signal_scorecard.record_drop("entry_score_too_low")
+                continue
+            # Scale position slightly larger for high-conviction entries
+            if eq.entry_score >= 0.75:
+                entry_score_scalar = 1.15
+        risk_scalar *= entry_score_scalar
 
         entry = {
             "side": signal["side"],
