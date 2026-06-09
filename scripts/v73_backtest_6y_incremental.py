@@ -18,6 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
+from research.mae_mfe_exit_lab import MAEMFEExitLab
+from research.trade_path_db import TradePathDatabase
 from storage.hot_path import assert_nvme_archive, hot_btcusdt_aggtrades_dir
 
 DEFAULT_DEST = hot_btcusdt_aggtrades_dir()
@@ -28,6 +30,15 @@ LOOKBACK = 40
 EXIT_BARS = 16
 STOP_PCT = 0.03
 TARGET_PCT = 0.004
+
+
+def _maybe_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_args() -> argparse.Namespace:
@@ -73,6 +84,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--resume", action="store_true")
     p.add_argument("--starting-equity", type=float, default=None)
     p.add_argument("--base-position-pct", type=float, default=0.01)
+    p.add_argument(
+        "--trade-path-out",
+        type=Path,
+        default=ROOT / "results/v73_trade_path_db.jsonl",
+        help="Write an aggregated trade-path JSONL database",
+    )
+    p.add_argument(
+        "--mae-mfe-out",
+        type=Path,
+        default=ROOT / "results/v73_mae_mfe_report.json",
+        help="Write aggregated MAE/MFE research report",
+    )
     return p.parse_args()
 
 
@@ -257,6 +280,8 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
     permission_counts: Counter[str] = Counter()
     exit_reasons: Counter[str] = Counter()
     shadow_gate_counts: Counter[str] = Counter()
+    trade_path_db = TradePathDatabase()
+    mae_lab = MAEMFEExitLab()
     for item in archive_reports:
         regime_counts.update(item["report"].get("regime_counts", {}))
         permission_counts.update(item["report"].get("permission_counts", {}))
@@ -282,6 +307,41 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
         else 100_000.0
     )
     ending = archive_reports[-1]["report"]["ending_equity"] if archive_reports else starting
+
+    for trade in all_trades:
+        trade_path_db.add_from_trade_dict(
+            trade,
+            symbol="BTCUSDT",
+            signal_family="volume_bar_cvd",
+            regime="UNKNOWN",
+            volatility_bucket="UNKNOWN",
+        )
+        mae_lab.add_from_paper_trade(
+            trade_id=str(trade.get("signal_id", trade.get("trade_id", ""))),
+            signal_id=str(trade.get("signal_id", trade.get("trade_id", ""))),
+            symbol="BTCUSDT",
+            side=int(trade.get("side", 0)),
+            entry_ts_ns=int(trade.get("entry_ts_ns", 0)),
+            exit_ts_ns=int(trade.get("exit_ts_ns", trade.get("entry_ts_ns", 0))),
+            entry_price=float(trade.get("entry_price", 0.0)),
+            exit_price=float(trade.get("exit_price", trade.get("entry_price", 0.0))),
+            max_adverse=float(trade.get("max_adverse", 0.0)),
+            max_favorable=float(trade.get("max_favorable", 0.0)),
+            pnl=float(trade.get("pnl", 0.0)),
+            exit_reason=str(trade.get("exit_reason", "UNKNOWN")),
+            signal_family="volume_bar_cvd",
+            regime="UNKNOWN",
+            bars_held=int(trade.get("bars_held", 0)),
+            max_hold_bars=int(trade.get("max_hold_bars", 0)),
+            target_pct=float(trade.get("target_pct", 0.0)),
+            stop_pct=float(trade.get("stop_pct", 0.03)),
+            toxicity_state=trade.get("toxicity_state"),
+            mlofi_zscore=_maybe_float(trade.get("mlofi_zscore")),
+            book_agreement=_maybe_float(trade.get("book_agreement")),
+        )
+
+    trade_path_summary = trade_path_db.summary()
+    mae_mfe_report = mae_lab.full_report()
 
     return {
         "rows_seen": rows_seen,
@@ -320,6 +380,26 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
         "shadow_gate_counts": dict(sorted(shadow_gate_counts.items())),
         "market_profile": archive_reports[-1]["report"].get("market_profile") if archive_reports else {},
         "mlofi_snapshot": archive_reports[-1]["report"].get("mlofi_snapshot") if archive_reports else {},
+        "trade_path_db": {
+            "summary": {
+                "n_trades": trade_path_summary.n_trades,
+                "n_wins": trade_path_summary.n_wins,
+                "win_rate": trade_path_summary.win_rate,
+                "total_pnl": trade_path_summary.total_pnl,
+                "avg_return_pct": trade_path_summary.avg_return_pct,
+                "avg_mae_r": trade_path_summary.avg_mae_r,
+                "avg_mfe_r": trade_path_summary.avg_mfe_r,
+                "avg_bars_held": trade_path_summary.avg_bars_held,
+                "by_signal_family": trade_path_summary.by_signal_family,
+                "by_regime": trade_path_summary.by_regime,
+                "by_session_hour": trade_path_summary.by_session_hour,
+                "by_exit_reason": trade_path_summary.by_exit_reason,
+            }
+        },
+        "mae_mfe_exit_lab": {
+            "all": mae_mfe_report.get("all", {}),
+            "shadow_gates": mae_mfe_report.get("shadow_gates", {}),
+        },
     }
 
 
@@ -433,6 +513,43 @@ def main() -> int:
         for path in sorted(work_dir.glob("*.report.json"))
     ]
     merged = merge_reports(all_report_payloads, all_trades)
+    trade_path_db = TradePathDatabase()
+    mae_lab = MAEMFEExitLab()
+    for trade in all_trades:
+        trade_path_db.add_from_trade_dict(
+            trade,
+            symbol="BTCUSDT",
+            signal_family="volume_bar_cvd",
+            regime="UNKNOWN",
+            volatility_bucket="UNKNOWN",
+        )
+        mae_lab.add_from_paper_trade(
+            trade_id=str(trade.get("signal_id", trade.get("trade_id", ""))),
+            signal_id=str(trade.get("signal_id", trade.get("trade_id", ""))),
+            symbol="BTCUSDT",
+            side=int(trade.get("side", 0)),
+            entry_ts_ns=int(trade.get("entry_ts_ns", 0)),
+            exit_ts_ns=int(trade.get("exit_ts_ns", trade.get("entry_ts_ns", 0))),
+            entry_price=float(trade.get("entry_price", 0.0)),
+            exit_price=float(trade.get("exit_price", trade.get("entry_price", 0.0))),
+            max_adverse=float(trade.get("max_adverse", 0.0)),
+            max_favorable=float(trade.get("max_favorable", 0.0)),
+            pnl=float(trade.get("pnl", 0.0)),
+            exit_reason=str(trade.get("exit_reason", "UNKNOWN")),
+            signal_family="volume_bar_cvd",
+            regime="UNKNOWN",
+            bars_held=int(trade.get("bars_held", 0)),
+            max_hold_bars=int(trade.get("max_hold_bars", 0)),
+            target_pct=float(trade.get("target_pct", 0.0)),
+            stop_pct=float(trade.get("stop_pct", 0.03)),
+            toxicity_state=trade.get("toxicity_state"),
+            mlofi_zscore=_maybe_float(trade.get("mlofi_zscore")),
+            book_agreement=_maybe_float(trade.get("book_agreement")),
+        )
+    if args.trade_path_out is not None:
+        trade_path_db.export_jsonl(args.trade_path_out)
+    if args.mae_mfe_out is not None:
+        mae_lab.export_report_json(args.mae_mfe_out)
     envelope = {
         "version": "7.3.0",
         "strategy": "volume_bar_cvd",
@@ -451,6 +568,8 @@ def main() -> int:
         "invert_signal_side": args.invert_signal_side,
         "require_entry_delta_alignment": args.require_entry_delta_alignment,
         "approve_only_permission": args.approve_only_permission,
+        "trade_path_out": str(args.trade_path_out) if args.trade_path_out is not None else None,
+        "mae_mfe_out": str(args.mae_mfe_out) if args.mae_mfe_out is not None else None,
         "command": "scripts/v73_backtest_6y_incremental.py",
         "report": merged,
     }
