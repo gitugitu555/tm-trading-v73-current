@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
+from research.promotion_summary import build_promotion_summary, load_json
 from research.mae_mfe_exit_lab import MAEMFEExitLab
 from research.trade_path_db import TradePathDatabase
 from storage.hot_path import assert_nvme_archive, hot_btcusdt_aggtrades_dir
@@ -95,6 +96,18 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "results/v73_mae_mfe_report.json",
         help="Write aggregated MAE/MFE research report",
+    )
+    p.add_argument(
+        "--promotion-summary-out",
+        type=Path,
+        default=ROOT / "results/v84_promotion_summary.json",
+        help="Write an aggregated promotion summary report",
+    )
+    p.add_argument(
+        "--candidate-report",
+        type=Path,
+        default=ROOT / "results/v84_full_shadow.json",
+        help="Optional candidate report used by the promotion summary",
     )
     return p.parse_args()
 
@@ -550,6 +563,32 @@ def main() -> int:
         trade_path_db.export_jsonl(args.trade_path_out)
     if args.mae_mfe_out is not None:
         mae_lab.export_report_json(args.mae_mfe_out)
+    promotion_summary = None
+    if args.promotion_summary_out is not None:
+        baseline_report = {"report": merged}
+        mae_mfe_payload = load_json(args.mae_mfe_out) if args.mae_mfe_out.is_file() else mae_mfe_report
+        candidate_report = load_json(args.candidate_report) if args.candidate_report.is_file() else None
+        promotion_summary = build_promotion_summary(
+            baseline_report=baseline_report,
+            trade_path_db_path=args.trade_path_out,
+            mae_mfe_report=mae_mfe_payload,
+            candidate_report=candidate_report,
+        )
+        args.promotion_summary_out.parent.mkdir(parents=True, exist_ok=True)
+        args.promotion_summary_out.write_text(
+            json.dumps(
+                {
+                    "baseline_report": str(args.output),
+                    "candidate_report": str(args.candidate_report) if candidate_report is not None else None,
+                    "trade_path_db": str(args.trade_path_out),
+                    "mae_mfe_report": str(args.mae_mfe_out),
+                    "summary": promotion_summary,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
     envelope = {
         "version": "7.3.0",
         "strategy": "volume_bar_cvd",
@@ -570,6 +609,10 @@ def main() -> int:
         "approve_only_permission": args.approve_only_permission,
         "trade_path_out": str(args.trade_path_out) if args.trade_path_out is not None else None,
         "mae_mfe_out": str(args.mae_mfe_out) if args.mae_mfe_out is not None else None,
+        "promotion_summary_out": (
+            str(args.promotion_summary_out) if args.promotion_summary_out is not None else None
+        ),
+        "promotion_summary": promotion_summary,
         "command": "scripts/v73_backtest_6y_incremental.py",
         "report": merged,
     }
