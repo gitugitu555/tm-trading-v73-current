@@ -1,0 +1,28 @@
+{
+  "config": {
+    "dest": "/home/tokio/tm-trading-v555/data/raw/binance/spot/aggTrades/BTCUSDT/2020-05-22_to_2026-05-21",
+    "threshold_btc": 300.0,
+    "divergence_lookback_bars": 30,
+    "exit_after_volume_bars": 24,
+    "stop_pct": 0.03,
+    "target_pct": 0.0055,
+    "scale_target_by_strength": true,
+    "starting_equity": 500.0,
+    "base_position_pct": 0.5,
+    "entry_lag_bars": 0,
+    "use_vpin_gate": false,
+    "use_market_profile_gate": false,
+    "use_anti_pattern_gate": false,
+    "use_risk_state_gate": false,
+    "use_auction_state_gate": false,
+    "use_regime_gate_volume_bar": false
+  },
+  "report": {
+    "trades": 8440,
+    "win_rate": 0.7085,
+    "sharpe": 3.0404,
+    "starting_equity": 500.0,
+    "ending_equity": 35233.45,
+    "total_pnl": 34733.45
+  }
+}

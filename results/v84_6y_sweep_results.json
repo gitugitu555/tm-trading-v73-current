@@ -1,0 +1,218 @@
+[
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0055,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.7088,
+    "sharpe": 3.0772,
+    "ending_equity": 109094.93,
+    "trades": 8437
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0055,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.7085,
+    "sharpe": 3.0404,
+    "ending_equity": 108977.98,
+    "trades": 8440
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0055,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.7076,
+    "sharpe": 3.0352,
+    "ending_equity": 108871.16,
+    "trades": 8445
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0055,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.6858,
+    "sharpe": 3.0351,
+    "ending_equity": 108795.11,
+    "trades": 8782
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0055,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.6852,
+    "sharpe": 3.0269,
+    "ending_equity": 108684.95,
+    "trades": 8787
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0055,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.6857,
+    "sharpe": 3.0169,
+    "ending_equity": 108730.33,
+    "trades": 8784
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.005,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.7261,
+    "sharpe": 2.9837,
+    "ending_equity": 108442.52,
+    "trades": 8663
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.005,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.7268,
+    "sharpe": 2.9833,
+    "ending_equity": 108559.2,
+    "trades": 8656
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.005,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.7265,
+    "sharpe": 2.9383,
+    "ending_equity": 108431.24,
+    "trades": 8659
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.005,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.7028,
+    "sharpe": 2.9324,
+    "ending_equity": 108133.09,
+    "trades": 8978
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.005,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.7032,
+    "sharpe": 2.9079,
+    "ending_equity": 108164.67,
+    "trades": 8973
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.005,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.7031,
+    "sharpe": 2.8822,
+    "ending_equity": 108089.3,
+    "trades": 8975
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0045,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.7456,
+    "sharpe": 2.826,
+    "ending_equity": 107752.0,
+    "trades": 8928
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0045,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.7463,
+    "sharpe": 2.8155,
+    "ending_equity": 107844.4,
+    "trades": 8921
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 24,
+      "target_pct": 0.0045,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.7461,
+    "sharpe": 2.7838,
+    "ending_equity": 107747.65,
+    "trades": 8924
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0045,
+      "stop_pct": 0.025
+    },
+    "win_rate": 0.7224,
+    "sharpe": 2.7559,
+    "ending_equity": 107413.92,
+    "trades": 9222
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0045,
+      "stop_pct": 0.035
+    },
+    "win_rate": 0.7228,
+    "sharpe": 2.7277,
+    "ending_equity": 107436.6,
+    "trades": 9217
+  },
+  {
+    "params": {
+      "lookback": 30,
+      "exit_bars": 20,
+      "target_pct": 0.0045,
+      "stop_pct": 0.03
+    },
+    "win_rate": 0.7226,
+    "sharpe": 2.7147,
+    "ending_equity": 107386.53,
+    "trades": 9219
+  }
+]
