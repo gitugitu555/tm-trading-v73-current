@@ -94,6 +94,7 @@ class MLOFIEngine:
 
         # Rolling history for z-score normalisation
         self._history: deque[float] = deque(maxlen=zscore_window)
+        self._last_snapshot: MLOFISnapshot = self._empty_snapshot()
 
     def update(
         self,
@@ -162,7 +163,7 @@ class MLOFIEngine:
         # Agreement and trap scores
         agreement, trap = self._agreement_trap(near_imb, far_imb)
 
-        return MLOFISnapshot(
+        self._last_snapshot = MLOFISnapshot(
             mlofi_l1=round(mlofi_l1, 6),
             mlofi_l3=round(mlofi_l3, 6) if mlofi_l3 is not None else None,
             mlofi_l5=round(mlofi_l5, 6) if mlofi_l5 is not None else None,
@@ -178,6 +179,7 @@ class MLOFIEngine:
             levels_used=n_levels,
             aggregation_method="distance_decay",
         )
+        return self._last_snapshot
 
     def update_from_bar(
         self,
@@ -201,7 +203,7 @@ class MLOFIEngine:
             roll_std = _std_deque(self._history, roll_mean)
             zscore = (imb - roll_mean) / max(roll_std, 1e-12)
 
-        return MLOFISnapshot(
+        self._last_snapshot = MLOFISnapshot(
             mlofi_l1=round(imb, 6),
             mlofi_l3=None,
             mlofi_l5=None,
@@ -217,6 +219,12 @@ class MLOFIEngine:
             levels_used=1,
             aggregation_method="bar_proxy",
         )
+        return self._last_snapshot
+
+    @property
+    def snapshot(self) -> MLOFISnapshot:
+        """Return the most recent snapshot without advancing state."""
+        return self._last_snapshot
 
     @staticmethod
     def _agreement_trap(
@@ -257,6 +265,25 @@ class MLOFIEngine:
     def reset(self) -> None:
         """Clear rolling history — call between sessions or symbols."""
         self._history.clear()
+        self._last_snapshot = self._empty_snapshot()
+
+    def _empty_snapshot(self) -> MLOFISnapshot:
+        return MLOFISnapshot(
+            mlofi_l1=None,
+            mlofi_l3=None,
+            mlofi_l5=None,
+            mlofi_l10=None,
+            near_book_imbalance=None,
+            far_book_imbalance=None,
+            mlofi_weighted_aggregate=None,
+            mlofi_zscore=None,
+            mlofi_window_mean=None,
+            mlofi_window_std=None,
+            book_agreement_score=0.0,
+            book_trap_score=0.0,
+            levels_used=0,
+            aggregation_method="distance_decay",
+        )
 
 
 # ---------------------------------------------------------------------------

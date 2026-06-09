@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from collections import deque
+from collections import Counter, deque
 import statistics
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -33,7 +33,11 @@ from prime.volume_bar_cvd import (
 )
 from research.manifests import append_manifest_jsonl, wrap_result_payload
 from research.signal_scorecard import SignalEvent, SignalScorecard
+from features.market_profile import MarketProfileEngine
+from features.mlofi import MLOFIEngine
+from features.anti_patterns import AntiPatternEngine
 from prime.auction_state import AuctionStateEngine
+from risk.risk_state import RiskStateEngine
 from storage.hot_path import assert_nvme_archive, assert_nvme_path, hot_btcusdt_aggtrades_dir
 from features.vpin import VPINEngine, ToxicityState
 
@@ -72,6 +76,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vwap-structure-pct", type=float, default=0.003)
     parser.add_argument("--use-auction-state-gate", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--use-vpin-gate", action=argparse.BooleanOptionalAction, default=False, help="Use VPIN toxicity gate to block entries")
+    parser.add_argument("--use-market-profile-gate", action=argparse.BooleanOptionalAction, default=False, help="Use market profile context to block low-quality entries")
+    parser.add_argument("--use-anti-pattern-gate", action=argparse.BooleanOptionalAction, default=False, help="Use anti-pattern shadow labels to block entries")
+    parser.add_argument("--use-risk-state-gate", action=argparse.BooleanOptionalAction, default=False, help="Use risk-state governor to reduce size or halt entries")
+    parser.add_argument("--market-profile-lookback-bars", type=int, default=120, help="Bars used when deriving market profile context")
     parser.add_argument("--use-cvd-quantile-filter", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--cvd-quantile-window", type=int, default=200)
     parser.add_argument("--cvd-quantile", type=float, default=0.75)
@@ -188,6 +196,12 @@ def parse_datetime_ns(value: str | None) -> int | None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return int(parsed.timestamp() * 1_000_000_000)
 
+
+def day_week_keys(ts_ns: int) -> tuple[int, tuple[int, int]]:
+    dt = datetime.fromtimestamp(ts_ns / 1_000_000_000, tz=timezone.utc)
+    iso = dt.isocalendar()
+    return dt.date().toordinal(), (iso.year, iso.week)
+
 def main() -> int:
     args = parse_args()
     dest = assert_nvme_path(args.dest.resolve(), label="backtest dest")
@@ -268,6 +282,10 @@ def main() -> int:
         htf_flat_quantile=args.htf_flat_quantile,
         use_auction_state_gate=args.use_auction_state_gate,
         use_vpin_gate=args.use_vpin_gate,
+        use_market_profile_gate=args.use_market_profile_gate,
+        use_anti_pattern_gate=args.use_anti_pattern_gate,
+        use_risk_state_gate=args.use_risk_state_gate,
+        market_profile_lookback_bars=args.market_profile_lookback_bars,
         exit_after_volume_bars=args.exit_after_volume_bars,
         use_regime_gate_volume_bar=args.use_regime_gate_volume_bar,
         use_footprint_confluence=args.use_footprint_confluence,
@@ -299,15 +317,29 @@ def main() -> int:
         use_auction_state_gate=args.use_auction_state_gate,
     )
 
-    auction_engine = AuctionStateEngine(hysteresis_bars=2)
-    vpin_engine = VPINEngine() if config.use_vpin_gate else None
-    
     needs_volume_bar_history = config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
     needs_cvd_confirm = (
         config.signal_mode == "divergence"
         and config.use_cvd_reversal_confirm
         and not uses_volume_bar_edge
     )
+
+    auction_engine = AuctionStateEngine(hysteresis_bars=2)
+    vpin_engine = (
+        VPINEngine()
+        if config.use_vpin_gate or config.use_anti_pattern_gate or config.use_risk_state_gate
+        else None
+    )
+    market_profile_engine = (
+        MarketProfileEngine()
+        if needs_volume_bar_history or config.use_market_profile_gate or config.use_anti_pattern_gate
+        else None
+    )
+    mlofi_engine = MLOFIEngine(max_levels=10, zscore_window=200)
+    anti_pattern_engine = (
+        AntiPatternEngine() if needs_volume_bar_history or config.use_anti_pattern_gate else None
+    )
+    risk_state_engine = RiskStateEngine() if needs_volume_bar_history or config.use_risk_state_gate else None
 
     quality = DataQualitySnapshot(
         state="CLEAN", latency_ms=0.0, duplicate_rate=0.0, sequence_gap_count=0,
@@ -321,11 +353,17 @@ def main() -> int:
     permission_counts: dict[str, int] = {}
     open_trade: OpenTradeState | None = None
     pending_entry: dict | None = None
+    shadow_gate_counts: Counter[str] = Counter()
     
     # 5-minute rolling window history for price change (lookback_ns = 300,000,000,000)
     price_history: deque[tuple[int, float]] = deque()
     # cvd_5m history for quantile filters
     cvd_history: deque[float] = deque(maxlen=args.cvd_quantile_window)
+    current_day_key: int | None = None
+    current_week_key: tuple[int, int] | None = None
+    day_start_equity = equity
+    week_start_equity = equity
+    consecutive_losses = 0
     # volume bars history
     bars: deque[VolumeBar] | None = deque(maxlen=2000) if needs_volume_bar_history else None
     htf_changes_history: deque[float] | None = deque(maxlen=2000) if needs_volume_bar_history else None
@@ -351,6 +389,14 @@ def main() -> int:
         high = float(row.high)
         low = float(row.low)
 
+        day_key, week_key = day_week_keys(ts)
+        if current_day_key != day_key:
+            current_day_key = day_key
+            day_start_equity = equity
+        if current_week_key != week_key:
+            current_week_key = week_key
+            week_start_equity = equity
+
         if pending_entry is not None and open_trade is None:
             direction = int(pending_entry["side"])
             bps = config.slippage_bps_per_side / 10_000
@@ -359,7 +405,7 @@ def main() -> int:
                 entry_ts_ns=int(row.start_ts_ns),
                 side=direction,
                 entry_price=actual_entry_price,
-                notional=equity * float(pending_entry["permitted_size"]),
+                notional=equity * float(pending_entry["permitted_size"]) * float(pending_entry.get("risk_scalar", 1.0)),
                 signal_id=str(pending_entry["signal_id"]),
                 permission_verdict=str(pending_entry["permission_verdict"]),
                 reason_codes=tuple(pending_entry["reason_codes"]),
@@ -370,6 +416,7 @@ def main() -> int:
             )
             pending_entry = None
 
+        mlofi_snapshot = mlofi_engine.snapshot
         htf_change = 0.0
         if needs_volume_bar_history:
             assert bars is not None
@@ -393,6 +440,11 @@ def main() -> int:
 
             htf_change = htf_change_at(bars, bar_obj.end_ts_ns, bar_obj.cumulative_delta)
             htf_changes_history.append(abs(htf_change))
+
+            mlofi_snapshot = mlofi_engine.update_from_bar(
+                float(row.buy_volume),
+                float(row.sell_volume),
+            )
 
         # Update VPIN engine
         vpin_snap = None
@@ -491,6 +543,10 @@ def main() -> int:
                 )
                 trades.append(paper_trade)
                 equity += pnl
+                if pnl > 0:
+                    consecutive_losses = 0
+                else:
+                    consecutive_losses += 1
                 open_trade = None
                 if needs_cvd_confirm:
                     cvd_prev_5m = float(row.cvd_5m)
@@ -761,11 +817,67 @@ def main() -> int:
             signal_scorecard.record_drop(f"permission_{permission.verdict}")
             continue
 
+        profile_snapshot = None
+        if market_profile_engine is not None and bars is not None and len(bars) > 0:
+            window = list(bars)[-max(1, config.market_profile_lookback_bars):]
+            profile_snapshot = market_profile_engine.update(window, current_price=close)
+
+        if anti_pattern_engine is not None:
+            anti_snapshot = anti_pattern_engine.evaluate(
+                setup_side=int(signal["side"]),
+                profile_context=profile_snapshot.profile_type if profile_snapshot is not None else "UNKNOWN",
+                toxicity_state=(vpin_snap.toxicity_state.value if vpin_snap is not None else "BENIGN"),
+                mlofi_zscore=mlofi_snapshot.mlofi_zscore,
+                spread_bps=None,
+                session_tier=profile_snapshot.session_tier if profile_snapshot is not None else "A",
+                breakout_strength=float(signal.get("strength", 0.0)),
+                atr_used_pct=profile_snapshot.atr_used_pct if profile_snapshot is not None else 0.0,
+                value_area_context=profile_snapshot.current_value_context if profile_snapshot is not None else "UNKNOWN",
+            )
+            if anti_snapshot.should_block:
+                shadow_gate_counts["anti_pattern_block"] = shadow_gate_counts.get("anti_pattern_block", 0) + 1
+                for label in anti_snapshot.labels:
+                    shadow_gate_counts[label] = shadow_gate_counts.get(label, 0) + 1
+                if config.use_anti_pattern_gate:
+                    signal_scorecard.record_drop("anti_pattern_gate")
+                    continue
+
+        if market_profile_engine is not None and profile_snapshot is not None:
+            if config.use_market_profile_gate:
+                if not profile_snapshot.can_trade_more:
+                    shadow_gate_counts["market_profile_exhaustion_block"] = shadow_gate_counts.get("market_profile_exhaustion_block", 0) + 1
+                    signal_scorecard.record_drop("market_profile_exhaustion")
+                    continue
+                if profile_snapshot.current_value_context == "IN_VALUE" and float(signal.get("strength", 0.0)) < 0.45:
+                    shadow_gate_counts["market_profile_mid_value_block"] = shadow_gate_counts.get("market_profile_mid_value_block", 0) + 1
+                    signal_scorecard.record_drop("market_profile_mid_value")
+                    continue
+
         # Check VPIN toxicity
         if vpin_engine is not None and vpin_snap is not None:
             if vpin_snap.toxicity_state in {ToxicityState.HIGH_TOXICITY}:
+                shadow_gate_counts["vpin_toxicity_block"] = shadow_gate_counts.get("vpin_toxicity_block", 0) + 1
                 signal_scorecard.record_drop("vpin_toxicity")
                 continue
+
+        risk_scalar = 1.0
+        if risk_state_engine is not None:
+            risk_snapshot = risk_state_engine.evaluate(
+                daily_pnl_r=(equity - day_start_equity) / max(config.starting_equity, 1e-12),
+                weekly_pnl_r=(equity - week_start_equity) / max(config.starting_equity, 1e-12),
+                consecutive_losses=consecutive_losses,
+                gross_exposure=(open_trade.notional if open_trade is not None else 0.0) / max(equity, 1e-12),
+                toxicity_state=(vpin_snap.toxicity_state.value if vpin_snap is not None else "BENIGN"),
+            )
+            shadow_gate_counts[f"risk_state_{risk_snapshot.state.lower()}"] = shadow_gate_counts.get(
+                f"risk_state_{risk_snapshot.state.lower()}",
+                0,
+            ) + 1
+            if config.use_risk_state_gate:
+                risk_scalar = risk_snapshot.position_scalar
+                if not risk_snapshot.allow:
+                    signal_scorecard.record_drop(f"risk_state_{risk_snapshot.state.lower()}")
+                    continue
 
         t_pct = config.target_pct
         if args.scale_target_by_strength:
@@ -776,6 +888,7 @@ def main() -> int:
         entry = {
             "side": signal["side"],
             "permitted_size": permission.permitted_size,
+            "risk_scalar": risk_scalar,
             "signal_id": signal["id"],
             "permission_verdict": permission.verdict,
             "reason_codes": tuple(record.code for record in permission.chain),
@@ -791,7 +904,7 @@ def main() -> int:
                 entry_ts_ns=ts,
                 side=direction,
                 entry_price=actual_entry_price,
-                notional=equity * permission.permitted_size,
+                notional=equity * permission.permitted_size * risk_scalar,
                 signal_id=signal["id"],
                 permission_verdict=permission.verdict,
                 reason_codes=entry["reason_codes"],
@@ -852,6 +965,35 @@ def main() -> int:
     report_dict["lookahead_safe"] = args.entry_lag_bars == 1
     signal_only = signal_scorecard.finalize(bar_closes)
     report_dict["signal_scorecard"] = signal_only
+    if bars is not None and len(bars) > 0:
+        profile_engine = MarketProfileEngine()
+        profile = profile_engine.update(list(bars), current_price=float(df.iloc[-1]["close"]))
+        report_dict["market_profile"] = {
+            "poc": profile.poc,
+            "vah": profile.vah,
+            "val": profile.val,
+            "profile_type": profile.profile_type,
+            "current_value_context": profile.current_value_context,
+            "atr_current": profile.atr_current,
+            "atr_used_pct": profile.atr_used_pct,
+            "session_tier": profile.session_tier,
+            "can_trade_more": profile.can_trade_more,
+            "profile_target_lvn": profile.profile_target_lvn,
+        }
+    report_dict["mlofi_snapshot"] = {
+        "mlofi_l1": mlofi_engine.snapshot.mlofi_l1,
+        "mlofi_l3": mlofi_engine.snapshot.mlofi_l3,
+        "mlofi_l5": mlofi_engine.snapshot.mlofi_l5,
+        "mlofi_l10": mlofi_engine.snapshot.mlofi_l10,
+        "near_book_imbalance": mlofi_engine.snapshot.near_book_imbalance,
+        "far_book_imbalance": mlofi_engine.snapshot.far_book_imbalance,
+        "mlofi_weighted_aggregate": mlofi_engine.snapshot.mlofi_weighted_aggregate,
+        "mlofi_zscore": mlofi_engine.snapshot.mlofi_zscore,
+        "book_agreement_score": mlofi_engine.snapshot.book_agreement_score,
+        "book_trap_score": mlofi_engine.snapshot.book_trap_score,
+        "levels_used": mlofi_engine.snapshot.levels_used,
+    }
+    report_dict["shadow_gate_counts"] = dict(sorted(shadow_gate_counts.items()))
     report_dict["trade_scorecard"] = {
         "trades": report.trades,
         "win_rate": report.win_rate,

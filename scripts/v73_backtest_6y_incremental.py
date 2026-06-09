@@ -59,6 +59,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--approve-only-permission", action="store_true", default=False)
     p.add_argument("--scale-target-by-strength", action="store_true", default=False)
     p.add_argument("--entry-lag-bars", type=int, choices=(0, 1), default=1)
+    p.add_argument("--use-market-profile-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--use-anti-pattern-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--use-risk-state-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--market-profile-lookback-bars", type=int, default=120)
     p.add_argument(
         "--work-dir",
         type=Path,
@@ -152,6 +156,10 @@ def run_archive_backtest(
     scale_target_by_strength: bool = False,
     base_position_pct: float = 0.01,
     entry_lag_bars: int = 1,
+    use_market_profile_gate: bool = False,
+    use_anti_pattern_gate: bool = False,
+    use_risk_state_gate: bool = False,
+    market_profile_lookback_bars: int = 120,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -184,6 +192,11 @@ def run_archive_backtest(
         str(base_position_pct),
         "--entry-lag-bars",
         str(entry_lag_bars),
+        "--use-market-profile-gate" if use_market_profile_gate else "--no-use-market-profile-gate",
+        "--use-anti-pattern-gate" if use_anti_pattern_gate else "--no-use-anti-pattern-gate",
+        "--use-risk-state-gate" if use_risk_state_gate else "--no-use-risk-state-gate",
+        "--market-profile-lookback-bars",
+        str(market_profile_lookback_bars),
         "--trades-out",
         str(trades_out),
     ]
@@ -240,10 +253,12 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
     regime_counts: Counter[str] = Counter()
     permission_counts: Counter[str] = Counter()
     exit_reasons: Counter[str] = Counter()
+    shadow_gate_counts: Counter[str] = Counter()
     for item in archive_reports:
         regime_counts.update(item["report"].get("regime_counts", {}))
         permission_counts.update(item["report"].get("permission_counts", {}))
         exit_reasons.update(item["report"].get("exit_reasons", {}))
+        shadow_gate_counts.update(item["report"].get("shadow_gate_counts", {}))
 
     returns = [t["return_pct"] for t in all_trades]
     pnls = [t["pnl"] for t in all_trades]
@@ -299,6 +314,9 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
         "lookahead_safe": (
             archive_reports[0]["report"].get("lookahead_safe", False) if archive_reports else False
         ),
+        "shadow_gate_counts": dict(sorted(shadow_gate_counts.items())),
+        "market_profile": archive_reports[-1]["report"].get("market_profile") if archive_reports else {},
+        "mlofi_snapshot": archive_reports[-1]["report"].get("mlofi_snapshot") if archive_reports else {},
     }
 
 
@@ -379,6 +397,10 @@ def main() -> int:
             scale_target_by_strength=args.scale_target_by_strength,
             base_position_pct=args.base_position_pct,
             entry_lag_bars=args.entry_lag_bars,
+            use_market_profile_gate=args.use_market_profile_gate,
+            use_anti_pattern_gate=args.use_anti_pattern_gate,
+            use_risk_state_gate=args.use_risk_state_gate,
+            market_profile_lookback_bars=args.market_profile_lookback_bars,
         )
         archive_reports.append(payload)
         (work_dir / f"{archive.name}.report.json").write_text(

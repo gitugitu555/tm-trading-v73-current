@@ -78,6 +78,10 @@ class ChunkBBacktestConfig:
     session_extreme_pct: float = 0.003
     use_auction_state_gate: bool = False
     use_vpin_gate: bool = False
+    use_market_profile_gate: bool = False
+    use_anti_pattern_gate: bool = False
+    use_risk_state_gate: bool = False
+    market_profile_lookback_bars: int = 120
     volume_bar_threshold: float = 300.0
     divergence_lookback_bars: int = 40
     htf_flat_quantile: float = 0.25

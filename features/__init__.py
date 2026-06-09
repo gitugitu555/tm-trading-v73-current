@@ -4,9 +4,11 @@ from .absorption import AbsorptionEngine
 from .cvd import CVDEngine
 from .delta import DeltaEngine
 from .footprint import FootprintEngine
+from .market_profile import MarketProfileEngine
 from .iceberg import IcebergDetector
 from .l2_imbalance import OrderBookImbalanceEngine
 from .large_prints import LargePrintDetector
+from .anti_patterns import AntiPatternEngine
 from .mlofi import MLOFIEngine
 from .microprice import microprice
 from .spoofing import SpoofingDetector
@@ -19,8 +21,10 @@ __all__ = [
     "CVDEngine",
     "DeltaEngine",
     "FootprintEngine",
+    "MarketProfileEngine",
     "IcebergDetector",
     "LargePrintDetector",
+    "AntiPatternEngine",
     "MLOFIEngine",
     "OrderBookImbalanceEngine",
     "SpoofingDetector",
