@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--use-market-profile-gate", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--use-anti-pattern-gate", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--use-risk-state-gate", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--use-vpin-gate", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--market-profile-lookback-bars", type=int, default=120)
     p.add_argument(
         "--work-dir",
@@ -159,6 +160,7 @@ def run_archive_backtest(
     use_market_profile_gate: bool = False,
     use_anti_pattern_gate: bool = False,
     use_risk_state_gate: bool = False,
+    use_vpin_gate: bool = False,
     market_profile_lookback_bars: int = 120,
 ) -> dict:
     cmd = [
@@ -192,6 +194,7 @@ def run_archive_backtest(
         str(base_position_pct),
         "--entry-lag-bars",
         str(entry_lag_bars),
+        "--use-vpin-gate" if use_vpin_gate else "--no-use-vpin-gate",
         "--use-market-profile-gate" if use_market_profile_gate else "--no-use-market-profile-gate",
         "--use-anti-pattern-gate" if use_anti_pattern_gate else "--no-use-anti-pattern-gate",
         "--use-risk-state-gate" if use_risk_state_gate else "--no-use-risk-state-gate",
@@ -400,6 +403,7 @@ def main() -> int:
             use_market_profile_gate=args.use_market_profile_gate,
             use_anti_pattern_gate=args.use_anti_pattern_gate,
             use_risk_state_gate=args.use_risk_state_gate,
+            use_vpin_gate=args.use_vpin_gate,
             market_profile_lookback_bars=args.market_profile_lookback_bars,
         )
         archive_reports.append(payload)
@@ -439,6 +443,7 @@ def main() -> int:
         "exit_after_volume_bars": args.exit_after_volume_bars,
         "use_time_exit": args.use_time_exit,
         "use_auction_state_gate": args.use_auction_state_gate,
+        "use_vpin_gate": args.use_vpin_gate,
         "use_regime_gate_volume_bar": args.use_regime_gate_volume_bar,
         "use_footprint_confluence": args.use_footprint_confluence,
         "stop_pct": args.stop_pct,
