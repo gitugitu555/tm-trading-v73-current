@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from prime.performance import sharpe_ratio
+from prime.performance import sharpe_ratio, daily_sharpe_ratio, sortino_ratio, daily_sortino_ratio, max_drawdown
 from storage.hot_path import hot_btcusdt_aggtrades_dir
 
 DEST = hot_btcusdt_aggtrades_dir()
@@ -69,7 +69,7 @@ BASE = [
     "--no-use-time-exit",
     "--no-use-cvd-reversal-confirm",
     "--starting-equity", str(STARTING_EQUITY),
-    "--base-position-pct", "0.01",
+    "--base-position-pct", "0.50",
     "--entry-lag-bars", "1",
     "--scale-target-by-strength",
     "--manifest-jsonl", "/dev/null",
@@ -91,6 +91,18 @@ STRATEGIES = [
     S("v83_wide",         "v8.3 wide targets (t=0.006 e=24 lb=30)",
       ["--divergence-lookback-bars", "30", "--exit-after-volume-bars", "24",
        "--stop-pct", "0.035", "--target-pct", "0.006"]),
+
+    # ---- Apples-to-apples normalizations ----
+    S("v85_apples_legacy", "v85 logic but with v84 config parameters",
+      ["--divergence-lookback-bars", "30", "--exit-after-volume-bars", "24",
+       "--stop-pct", "0.035", "--target-pct", "0.0055",
+       "--entry-lag-bars", "0", "--base-position-pct", "0.50",
+       "--no-scale-target-by-strength"]),
+    S("v85_apples_lag_only", "v84 config parameters but entry lag 1",
+      ["--divergence-lookback-bars", "30", "--exit-after-volume-bars", "24",
+       "--stop-pct", "0.035", "--target-pct", "0.0055",
+       "--entry-lag-bars", "1", "--base-position-pct", "0.50",
+       "--no-scale-target-by-strength"]),
 
     # ---- v8.4 institutional sweep winners ----
     S("v84_config2",      "v8.4 config2 — best sweep winner (t=0.005 e=24 lb=30)",
@@ -239,6 +251,7 @@ def evaluate(trades: list[dict]) -> dict:
     if not trades:
         return {
             "trades": 0, "win_rate": 0.0, "sharpe": 0.0,
+            "daily_sharpe": 0.0, "sortino": 0.0, "daily_sortino": 0.0, "max_drawdown": 0.0,
             "starting_equity": STARTING_EQUITY, "ending_equity": STARTING_EQUITY,
             "total_return_pct": 0.0, "total_pnl": 0.0, "exit_reasons": {},
         }
@@ -256,10 +269,41 @@ def evaluate(trades: list[dict]) -> dict:
         er = t.get("exit_reason", "?")
         exit_reasons[er] = exit_reasons.get(er, 0) + 1
 
+    # Calculate daily equity and daily returns
+    daily_equity = {1: STARTING_EQUITY} # dummy day 1 if no trades
+    if len(trades) > 0:
+        current_day = trades[0].get("exit_ts_ns", 0) // (24 * 3_600_000_000_000)
+        daily_equity = {current_day: STARTING_EQUITY}
+        running_equity = STARTING_EQUITY
+        for trade in trades:
+            day = trade.get("exit_ts_ns", 0) // (24 * 3_600_000_000_000)
+            running_equity += trade.get("_pnl", 0)
+            daily_equity[day] = running_equity
+    
+    sorted_days = sorted(daily_equity.keys())
+    daily_returns = []
+    for i in range(1, len(sorted_days)):
+        prev_eq = daily_equity[sorted_days[i-1]]
+        curr_eq = daily_equity[sorted_days[i]]
+        if prev_eq > 0:
+            daily_returns.append((curr_eq - prev_eq) / prev_eq)
+        else:
+            daily_returns.append(0.0)
+
+    equity_curve = [STARTING_EQUITY]
+    running_eq = STARTING_EQUITY
+    for trade in trades:
+        running_eq += trade.get("_pnl", 0)
+        equity_curve.append(running_eq)
+
     return {
         "trades": len(trades),
         "win_rate": round(wins / len(trades), 4),
         "sharpe": round(sharpe_ratio(returns), 4),
+        "daily_sharpe": round(daily_sharpe_ratio(daily_returns), 4),
+        "sortino": round(sortino_ratio(returns), 4),
+        "daily_sortino": round(daily_sortino_ratio(daily_returns), 4),
+        "max_drawdown": round(max_drawdown(equity_curve), 4),
         "starting_equity": STARTING_EQUITY,
         "ending_equity": round(eq, 2),
         "total_return_pct": round((eq - STARTING_EQUITY) / STARTING_EQUITY, 4),
@@ -314,7 +358,7 @@ def main() -> int:
     # Evaluate & rank
     results = {}
     ranked = []
-    hdr = f"{'Strategy':<30} {'Trd':>6} {'WR':>7} {'Sharpe':>8} {'EndEq':>10} {'Ret%':>8}"
+    hdr = f"{'Strategy':<30} {'Trd':>6} {'WR':>7} {'TrdShrp':>7} {'DlyShrp':>7} {'DlySrtn':>7} {'MDD':>7} {'EndEq':>10} {'Ret%':>8}"
     print(hdr)
     print("-" * len(hdr))
     for strat in STRATEGIES:
@@ -324,7 +368,8 @@ def main() -> int:
         ranked.append((sname, metrics))
         print(
             f"{sname:<30} {metrics['trades']:>6} {metrics['win_rate']:>7.2%} "
-            f"{metrics['sharpe']:>8.4f} {metrics['ending_equity']:>10.2f} "
+            f"{metrics['sharpe']:>7.2f} {metrics['daily_sharpe']:>7.2f} {metrics['daily_sortino']:>7.2f} "
+            f"{metrics['max_drawdown']:>7.2%} {metrics['ending_equity']:>10.2f} "
             f"{metrics['total_return_pct']:>8.2%}"
         )
 

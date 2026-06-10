@@ -116,3 +116,43 @@ def inverse_normal_cdf(probability: float) -> float:
         ((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1
     )
 
+
+def daily_sharpe_ratio(daily_returns: list[float], risk_free_rate: float = 0.0, periods_per_year: float = 365.0) -> float:
+    if len(daily_returns) < 2:
+        return 0.0
+    excess_returns = [r - risk_free_rate / periods_per_year for r in daily_returns]
+    mean = sum(excess_returns) / len(excess_returns)
+    variance = sum((value - mean) ** 2 for value in excess_returns) / (len(excess_returns) - 1)
+    stdev = math.sqrt(variance)
+    return (mean / stdev) * math.sqrt(periods_per_year) if stdev else 0.0
+
+
+def sortino_ratio(returns: list[float], target_return: float = 0.0, periods_per_year: float = 365.0) -> float:
+    if len(returns) < 2:
+        return 0.0
+    mean = sum(returns) / len(returns)
+    downside_returns = [r - target_return for r in returns if r < target_return]
+    if not downside_returns:
+        return 0.0
+    downside_variance = sum(r ** 2 for r in downside_returns) / (len(returns) - 1)
+    downside_stdev = math.sqrt(downside_variance)
+    return (mean - target_return) / downside_stdev * math.sqrt(periods_per_year) if downside_stdev else 0.0
+
+
+def daily_sortino_ratio(daily_returns: list[float], target_return: float = 0.0, periods_per_year: float = 365.0) -> float:
+    return sortino_ratio(daily_returns, target_return / periods_per_year, periods_per_year)
+
+
+def max_drawdown(equity_curve: list[float]) -> float:
+    if not equity_curve:
+        return 0.0
+    peak = equity_curve[0]
+    max_dd = 0.0
+    for value in equity_curve:
+        if value > peak:
+            peak = value
+        dd = (peak - value) / peak if peak > 0 else 0.0
+        if dd > max_dd:
+            max_dd = dd
+    return max_dd
+

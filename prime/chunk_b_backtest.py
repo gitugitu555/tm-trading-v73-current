@@ -9,7 +9,16 @@ from typing import Iterable
 
 from prime.contracts import DataQualitySnapshot
 from prime.nautilus_compat import TradeTick
-from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
+from prime.performance import (
+    deflated_sharpe_probability,
+    kurtosis,
+    sharpe_ratio,
+    skewness,
+    daily_sharpe_ratio,
+    sortino_ratio,
+    daily_sortino_ratio,
+    max_drawdown,
+)
 from prime.chunk_b_trade_state import OpenTradeState
 from prime.auction_state import AuctionStateEngine
 from prime.phase1 import (
@@ -125,6 +134,10 @@ class ChunkBBacktestReport:
     sharpe: float
     deflated_sharpe_probability: float
     dsr_passed: bool
+    daily_sharpe: float
+    sortino: float
+    daily_sortino: float
+    max_drawdown: float
     win_rate: float
     regime_counts: dict[str, int]
     trend_coverage: float
@@ -306,10 +319,43 @@ class ChunkBBacktester:
             )
 
         returns = [trade.return_pct for trade in trades]
+        
+        # Calculate daily equity and daily returns
+        daily_equity = {1: self.config.starting_equity} # dummy day 1 if no trades
+        if len(trades) > 0:
+            current_day = trades[0].exit_ts_ns // (24 * 3_600_000_000_000)
+            daily_equity = {current_day: self.config.starting_equity}
+            running_equity = self.config.starting_equity
+            for trade in trades:
+                day = trade.exit_ts_ns // (24 * 3_600_000_000_000)
+                running_equity += trade.pnl
+                daily_equity[day] = running_equity
+        
+        sorted_days = sorted(daily_equity.keys())
+        daily_returns = []
+        for i in range(1, len(sorted_days)):
+            prev_eq = daily_equity[sorted_days[i-1]]
+            curr_eq = daily_equity[sorted_days[i]]
+            if prev_eq > 0:
+                daily_returns.append((curr_eq - prev_eq) / prev_eq)
+            else:
+                daily_returns.append(0.0)
+
+        equity_curve = [self.config.starting_equity]
+        running_eq = self.config.starting_equity
+        for trade in trades:
+            running_eq += trade.pnl
+            equity_curve.append(running_eq)
+
         adverse_list = [trade.max_adverse for trade in trades]
         favorable_list = [trade.max_favorable for trade in trades]
         total_pnl = sum(trade.pnl for trade in trades)
         sharpe = sharpe_ratio(returns)
+        d_sharpe = daily_sharpe_ratio(daily_returns)
+        sortino = sortino_ratio(returns)
+        d_sortino = daily_sortino_ratio(daily_returns)
+        mdd = max_drawdown(equity_curve)
+        
         dsr = deflated_sharpe_probability(
             sharpe=sharpe,
             n_trials=self.config.n_trials,
@@ -330,6 +376,10 @@ class ChunkBBacktester:
             sharpe=round(sharpe, 4),
             deflated_sharpe_probability=round(dsr, 4),
             dsr_passed=dsr >= 0.95 and sharpe >= 1.5,
+            daily_sharpe=round(d_sharpe, 4),
+            sortino=round(sortino, 4),
+            daily_sortino=round(d_sortino, 4),
+            max_drawdown=round(mdd, 4),
             win_rate=round(wins / len(trades), 4) if trades else 0.0,
             regime_counts=dict(sorted(regime_counts.items())),
             trend_coverage=round(trend_rows / classified_rows, 4) if classified_rows else 0.0,
