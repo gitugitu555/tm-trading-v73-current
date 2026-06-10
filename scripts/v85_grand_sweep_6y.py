@@ -202,6 +202,18 @@ STRATEGIES = [
 
 def run_archive(archive: Path, strategy: dict, trades_dir: Path) -> dict:
     trades_out = trades_dir / f"{strategy['name']}_{archive.stem}.jsonl"
+    if trades_out.is_file():
+        try:
+            trades = []
+            if trades_out.stat().st_size > 0:
+                with trades_out.open(encoding="utf-8") as fh:
+                    for line in fh:
+                        if line.strip():
+                            trades.append(json.loads(line))
+            return {"strategy": strategy["name"], "archive": archive.name, "trades": trades}
+        except Exception:
+            pass
+
     cmd = (
         [sys.executable, str(ROOT / "scripts/chunk_b_backtest_cached.py"),
          "--dest", str(DEST), "--archive", archive.name,

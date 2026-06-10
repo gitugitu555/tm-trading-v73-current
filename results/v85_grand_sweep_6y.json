@@ -1,0 +1,782 @@
+{
+  "v83_balanced": {
+    "description": "v8.3 balanced (t=0.005 e=24 lb=30)",
+    "metrics": {
+      "trades": 9091,
+      "win_rate": 0.5629,
+      "sharpe": -2.7703,
+      "starting_equity": 500.0,
+      "ending_equity": 454.27,
+      "total_return_pct": -0.0915,
+      "total_pnl": -45.73,
+      "exit_reasons": {
+        "BAR_EXIT": 4773,
+        "TARGET": 4190,
+        "STOP": 128
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005"
+    ]
+  },
+  "v83_highwr": {
+    "description": "v8.3 high-WR (t=0.004 e=16 lb=40)",
+    "metrics": {
+      "trades": 8026,
+      "win_rate": 0.5622,
+      "sharpe": -3.19,
+      "starting_equity": 500.0,
+      "ending_equity": 462.94,
+      "total_return_pct": -0.0741,
+      "total_pnl": -37.06,
+      "exit_reasons": {
+        "BAR_EXIT": 4193,
+        "TARGET": 3742,
+        "STOP": 91
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "40",
+      "--exit-after-volume-bars",
+      "16",
+      "--stop-pct",
+      "0.025",
+      "--target-pct",
+      "0.004"
+    ]
+  },
+  "v83_wide": {
+    "description": "v8.3 wide targets (t=0.006 e=24 lb=30)",
+    "metrics": {
+      "trades": 8820,
+      "win_rate": 0.5317,
+      "sharpe": -2.4877,
+      "starting_equity": 500.0,
+      "ending_equity": 457.64,
+      "total_return_pct": -0.0847,
+      "total_pnl": -42.36,
+      "exit_reasons": {
+        "BAR_EXIT": 5225,
+        "TARGET": 3535,
+        "STOP": 60
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.035",
+      "--target-pct",
+      "0.006"
+    ]
+  },
+  "v84_config2": {
+    "description": "v8.4 config2 \u2014 best sweep winner (t=0.005 e=24 lb=30)",
+    "metrics": {
+      "trades": 9091,
+      "win_rate": 0.5629,
+      "sharpe": -2.7703,
+      "starting_equity": 500.0,
+      "ending_equity": 454.27,
+      "total_return_pct": -0.0915,
+      "total_pnl": -45.73,
+      "exit_reasons": {
+        "BAR_EXIT": 4773,
+        "TARGET": 4190,
+        "STOP": 128
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005"
+    ]
+  },
+  "v84_config2_profile": {
+    "description": "v8.4 config2 + market-profile gate",
+    "metrics": {
+      "trades": 9091,
+      "win_rate": 0.5629,
+      "sharpe": -2.77,
+      "starting_equity": 500.0,
+      "ending_equity": 454.27,
+      "total_return_pct": -0.0915,
+      "total_pnl": -45.73,
+      "exit_reasons": {
+        "BAR_EXIT": 4773,
+        "TARGET": 4190,
+        "STOP": 128
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v84_config2_allgates": {
+    "description": "v8.4 config2 + all shadow gates",
+    "metrics": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "sharpe": 0.0,
+      "starting_equity": 500.0,
+      "ending_equity": 500.0,
+      "total_return_pct": 0.0,
+      "total_pnl": 0.0,
+      "exit_reasons": {}
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-market-profile-gate",
+      "--use-anti-pattern-gate",
+      "--use-vpin-gate",
+      "--use-risk-state-gate"
+    ]
+  },
+  "v84_t0045_e20": {
+    "description": "v8.4 t=0.0045 e=20 lb=30",
+    "metrics": {
+      "trades": 9613,
+      "win_rate": 0.5602,
+      "sharpe": -2.8481,
+      "starting_equity": 500.0,
+      "ending_equity": 456.02,
+      "total_return_pct": -0.088,
+      "total_pnl": -43.98,
+      "exit_reasons": {
+        "BAR_EXIT": 4951,
+        "TARGET": 4486,
+        "STOP": 176
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "20",
+      "--stop-pct",
+      "0.025",
+      "--target-pct",
+      "0.0045"
+    ]
+  },
+  "v84_t0055_e24": {
+    "description": "v8.4 t=0.0055 e=24 lb=30",
+    "metrics": {
+      "trades": 8958,
+      "win_rate": 0.5476,
+      "sharpe": -2.6108,
+      "starting_equity": 500.0,
+      "ending_equity": 456.14,
+      "total_return_pct": -0.0877,
+      "total_pnl": -43.86,
+      "exit_reasons": {
+        "BAR_EXIT": 4970,
+        "TARGET": 3856,
+        "STOP": 132
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.0055"
+    ]
+  },
+  "v85_profile_exit": {
+    "description": "v8.5 profile signal exit (POC/VWAP/VAH/VAL)",
+    "metrics": {
+      "trades": 7416,
+      "win_rate": 0.7438,
+      "sharpe": -2.1247,
+      "starting_equity": 500.0,
+      "ending_equity": 461.42,
+      "total_return_pct": -0.0772,
+      "total_pnl": -38.58,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1564,
+        "BAR_EXIT": 1526,
+        "TARGET": 1452,
+        "PROFILE_VAL_BREAK": 1443,
+        "PROFILE_VAH_BREAK": 969,
+        "PROFILE_HARD_STOP": 276,
+        "STOP": 186
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_vwap_filter": {
+    "description": "v8.5 profile exit + VWAP entry side filter",
+    "metrics": {
+      "trades": 4407,
+      "win_rate": 0.7347,
+      "sharpe": -2.5017,
+      "starting_equity": 500.0,
+      "ending_equity": 472.13,
+      "total_return_pct": -0.0557,
+      "total_pnl": -27.87,
+      "exit_reasons": {
+        "BAR_EXIT": 936,
+        "PROFILE_POC_RECLAIMED": 908,
+        "PROFILE_VAL_BREAK": 870,
+        "TARGET": 804,
+        "PROFILE_VAH_BREAK": 601,
+        "PROFILE_HARD_STOP": 171,
+        "STOP": 117
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--vwap-entry-side-filter"
+    ]
+  },
+  "v85_quality_50": {
+    "description": "v8.5 profile exit + min entry score 0.50",
+    "metrics": {
+      "trades": 7050,
+      "win_rate": 0.7393,
+      "sharpe": -2.1424,
+      "starting_equity": 500.0,
+      "ending_equity": 463.5,
+      "total_return_pct": -0.073,
+      "total_pnl": -36.5,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1545,
+        "BAR_EXIT": 1510,
+        "PROFILE_VAL_BREAK": 1427,
+        "TARGET": 1199,
+        "PROFILE_VAH_BREAK": 953,
+        "PROFILE_HARD_STOP": 253,
+        "STOP": 163
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--min-entry-score",
+      "0.50"
+    ]
+  },
+  "v85_quality_55": {
+    "description": "v8.5 profile exit + min entry score 0.55",
+    "metrics": {
+      "trades": 6860,
+      "win_rate": 0.7366,
+      "sharpe": -2.162,
+      "starting_equity": 500.0,
+      "ending_equity": 464.47,
+      "total_return_pct": -0.0711,
+      "total_pnl": -35.53,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1517,
+        "BAR_EXIT": 1503,
+        "PROFILE_VAL_BREAK": 1405,
+        "TARGET": 1105,
+        "PROFILE_VAH_BREAK": 939,
+        "PROFILE_HARD_STOP": 235,
+        "STOP": 156
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--min-entry-score",
+      "0.55"
+    ]
+  },
+  "v85_combined": {
+    "description": "v8.5 combined: VWAP filter + min score 0.50",
+    "metrics": {
+      "trades": 4407,
+      "win_rate": 0.7347,
+      "sharpe": -2.5017,
+      "starting_equity": 500.0,
+      "ending_equity": 472.13,
+      "total_return_pct": -0.0557,
+      "total_pnl": -27.87,
+      "exit_reasons": {
+        "BAR_EXIT": 936,
+        "PROFILE_POC_RECLAIMED": 908,
+        "PROFILE_VAL_BREAK": 870,
+        "TARGET": 804,
+        "PROFILE_VAH_BREAK": 601,
+        "PROFILE_HARD_STOP": 171,
+        "STOP": 117
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--vwap-entry-side-filter",
+      "--min-entry-score",
+      "0.50"
+    ]
+  },
+  "v85_combined_anti": {
+    "description": "v8.5 combined + anti-pattern gate",
+    "metrics": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "sharpe": 0.0,
+      "starting_equity": 500.0,
+      "ending_equity": 500.0,
+      "total_return_pct": 0.0,
+      "total_pnl": 0.0,
+      "exit_reasons": {}
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--vwap-entry-side-filter",
+      "--min-entry-score",
+      "0.50",
+      "--use-anti-pattern-gate"
+    ]
+  },
+  "v85_all_gates": {
+    "description": "v8.5 profile exit + ALL gates",
+    "metrics": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "sharpe": 0.0,
+      "starting_equity": 500.0,
+      "ending_equity": 500.0,
+      "total_return_pct": 0.0,
+      "total_pnl": 0.0,
+      "exit_reasons": {}
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate",
+      "--vwap-entry-side-filter",
+      "--min-entry-score",
+      "0.50",
+      "--use-anti-pattern-gate",
+      "--use-vpin-gate",
+      "--use-risk-state-gate"
+    ]
+  },
+  "v85_lb20_e20": {
+    "description": "v8.5 lookback=20 exit=20",
+    "metrics": {
+      "trades": 9670,
+      "win_rate": 0.7338,
+      "sharpe": -1.9735,
+      "starting_equity": 500.0,
+      "ending_equity": 455.2,
+      "total_return_pct": -0.0896,
+      "total_pnl": -44.8,
+      "exit_reasons": {
+        "BAR_EXIT": 2221,
+        "PROFILE_POC_RECLAIMED": 2120,
+        "PROFILE_VAL_BREAK": 1812,
+        "TARGET": 1761,
+        "PROFILE_VAH_BREAK": 1241,
+        "PROFILE_HARD_STOP": 308,
+        "STOP": 207
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "20",
+      "--exit-after-volume-bars",
+      "20",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_lb30_e32": {
+    "description": "v8.5 lookback=30 exit=32",
+    "metrics": {
+      "trades": 6993,
+      "win_rate": 0.7726,
+      "sharpe": -2.0109,
+      "starting_equity": 500.0,
+      "ending_equity": 463.82,
+      "total_return_pct": -0.0724,
+      "total_pnl": -36.18,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1496,
+        "PROFILE_VAL_BREAK": 1469,
+        "TARGET": 1420,
+        "BAR_EXIT": 1118,
+        "PROFILE_VAH_BREAK": 964,
+        "PROFILE_HARD_STOP": 310,
+        "STOP": 216
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "32",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_lb40_e24": {
+    "description": "v8.5 lookback=40 exit=24",
+    "metrics": {
+      "trades": 6146,
+      "win_rate": 0.748,
+      "sharpe": -1.9366,
+      "starting_equity": 500.0,
+      "ending_equity": 470.89,
+      "total_return_pct": -0.0582,
+      "total_pnl": -29.11,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1284,
+        "BAR_EXIT": 1263,
+        "PROFILE_VAL_BREAK": 1226,
+        "TARGET": 1215,
+        "PROFILE_VAH_BREAK": 783,
+        "PROFILE_HARD_STOP": 237,
+        "STOP": 138
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "40",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_t0045_profile": {
+    "description": "v8.5 target=0.0045 with profile exit",
+    "metrics": {
+      "trades": 7679,
+      "win_rate": 0.7488,
+      "sharpe": -2.1318,
+      "starting_equity": 500.0,
+      "ending_equity": 462.59,
+      "total_return_pct": -0.0748,
+      "total_pnl": -37.41,
+      "exit_reasons": {
+        "TARGET": 1880,
+        "PROFILE_POC_RECLAIMED": 1458,
+        "BAR_EXIT": 1387,
+        "PROFILE_VAL_BREAK": 1382,
+        "PROFILE_VAH_BREAK": 943,
+        "PROFILE_HARD_STOP": 381,
+        "STOP": 248
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.025",
+      "--target-pct",
+      "0.0045",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_t0055_profile": {
+    "description": "v8.5 target=0.0055 with profile exit",
+    "metrics": {
+      "trades": 7246,
+      "win_rate": 0.7399,
+      "sharpe": -2.0522,
+      "starting_equity": 500.0,
+      "ending_equity": 461.96,
+      "total_return_pct": -0.0761,
+      "total_pnl": -38.04,
+      "exit_reasons": {
+        "BAR_EXIT": 1649,
+        "PROFILE_POC_RECLAIMED": 1644,
+        "PROFILE_VAL_BREAK": 1481,
+        "TARGET": 1158,
+        "PROFILE_VAH_BREAK": 989,
+        "PROFILE_HARD_STOP": 198,
+        "STOP": 127
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.035",
+      "--target-pct",
+      "0.0055",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_t006_profile": {
+    "description": "v8.5 target=0.006 with profile exit (run longer)",
+    "metrics": {
+      "trades": 6714,
+      "win_rate": 0.7675,
+      "sharpe": -1.9646,
+      "starting_equity": 500.0,
+      "ending_equity": 463.6,
+      "total_return_pct": -0.0728,
+      "total_pnl": -36.4,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1654,
+        "PROFILE_VAL_BREAK": 1531,
+        "BAR_EXIT": 1214,
+        "PROFILE_VAH_BREAK": 996,
+        "TARGET": 917,
+        "PROFILE_HARD_STOP": 245,
+        "STOP": 157
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "32",
+      "--stop-pct",
+      "0.035",
+      "--target-pct",
+      "0.006",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_tight_stop": {
+    "description": "v8.5 tighter stop=0.02 with profile exit",
+    "metrics": {
+      "trades": 7763,
+      "win_rate": 0.7313,
+      "sharpe": -2.3267,
+      "starting_equity": 500.0,
+      "ending_equity": 460.47,
+      "total_return_pct": -0.0791,
+      "total_pnl": -39.53,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1645,
+        "TARGET": 1578,
+        "PROFILE_VAL_BREAK": 1426,
+        "BAR_EXIT": 1226,
+        "PROFILE_VAH_BREAK": 941,
+        "PROFILE_HARD_STOP": 551,
+        "STOP": 396
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.02",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_wide_stop": {
+    "description": "v8.5 wider stop=0.04 with profile exit (let winners run)",
+    "metrics": {
+      "trades": 6470,
+      "win_rate": 0.7822,
+      "sharpe": -1.7687,
+      "starting_equity": 500.0,
+      "ending_equity": 467.03,
+      "total_return_pct": -0.0659,
+      "total_pnl": -32.97,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1615,
+        "PROFILE_VAL_BREAK": 1535,
+        "BAR_EXIT": 1139,
+        "PROFILE_VAH_BREAK": 992,
+        "TARGET": 880,
+        "PROFILE_HARD_STOP": 170,
+        "STOP": 139
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "36",
+      "--stop-pct",
+      "0.04",
+      "--target-pct",
+      "0.006",
+      "--use-profile-exit",
+      "--use-market-profile-gate"
+    ]
+  },
+  "v85_vpin_only": {
+    "description": "v8.5 profile exit + VPIN toxicity gate only",
+    "metrics": {
+      "trades": 7340,
+      "win_rate": 0.7436,
+      "sharpe": -2.1485,
+      "starting_equity": 500.0,
+      "ending_equity": 461.31,
+      "total_return_pct": -0.0774,
+      "total_pnl": -38.69,
+      "exit_reasons": {
+        "PROFILE_POC_RECLAIMED": 1546,
+        "BAR_EXIT": 1514,
+        "TARGET": 1429,
+        "PROFILE_VAL_BREAK": 1429,
+        "PROFILE_VAH_BREAK": 962,
+        "PROFILE_HARD_STOP": 272,
+        "STOP": 188
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-vpin-gate"
+    ]
+  },
+  "v85_risk_only": {
+    "description": "v8.5 profile exit + risk-state gate only",
+    "metrics": {
+      "trades": 4526,
+      "win_rate": 0.8031,
+      "sharpe": -1.6051,
+      "starting_equity": 500.0,
+      "ending_equity": 479.93,
+      "total_return_pct": -0.0401,
+      "total_pnl": -20.07,
+      "exit_reasons": {
+        "TARGET": 1216,
+        "PROFILE_POC_RECLAIMED": 1163,
+        "PROFILE_VAL_BREAK": 788,
+        "BAR_EXIT": 545,
+        "PROFILE_VAH_BREAK": 439,
+        "PROFILE_HARD_STOP": 213,
+        "STOP": 162
+      }
+    },
+    "args": [
+      "--divergence-lookback-bars",
+      "30",
+      "--exit-after-volume-bars",
+      "24",
+      "--stop-pct",
+      "0.03",
+      "--target-pct",
+      "0.005",
+      "--use-profile-exit",
+      "--use-risk-state-gate"
+    ]
+  }
+}
