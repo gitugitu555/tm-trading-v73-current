@@ -18,6 +18,7 @@ from storage.hot_path import hot_btcusdt_aggtrades_dir
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-archives", type=int, default=None)
+    parser.add_argument("--resume", action="store_true", default=False, help="Resume from checkpoint state if present.")
     parser.add_argument("--checkpoint", type=Path, default=ROOT / "results/v90_validation_closure/duplicate_scan/checkpoint.json")
     args = parser.parse_args()
     raw_dir = hot_btcusdt_aggtrades_dir()
@@ -29,7 +30,7 @@ def main() -> int:
         result["scan_complete"] = False
     out = ROOT / "results/v90_validation_closure/duplicate_scan"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "duplicate_scan.json").write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+    (out / "final_summary.json").write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     doc = ROOT / "docs/v90_validation_closure/02_raw_trade_duplicate_scan.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text(
