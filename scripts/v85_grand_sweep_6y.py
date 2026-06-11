@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from prime.performance import sharpe_ratio, daily_sharpe_ratio, sortino_ratio, daily_sortino_ratio, max_drawdown
+from research.v86_recovery import canonical_cli_args, summarize_trades
 from storage.hot_path import hot_btcusdt_aggtrades_dir
 
 DEST = hot_btcusdt_aggtrades_dir()
@@ -248,19 +249,21 @@ def run_archive(archive: Path, strategy: dict, trades_dir: Path) -> dict:
 
 
 def evaluate(trades: list[dict]) -> dict:
+    ledger = summarize_trades(trades, starting_equity=STARTING_EQUITY)
     if not trades:
         return {
             "trades": 0, "win_rate": 0.0, "sharpe": 0.0,
             "daily_sharpe": 0.0, "sortino": 0.0, "daily_sortino": 0.0, "max_drawdown": 0.0,
             "starting_equity": STARTING_EQUITY, "ending_equity": STARTING_EQUITY,
-            "total_return_pct": 0.0, "total_pnl": 0.0, "exit_reasons": {},
+            "ending_equity_actual": STARTING_EQUITY, "ending_equity_synthetic_1pct": STARTING_EQUITY,
+            "total_return_pct": 0.0, "total_pnl": 0.0, "exit_reasons": {}, **ledger,
         }
     trades.sort(key=lambda t: t.get("entry_ts_ns", 0))
-    eq = STARTING_EQUITY
+    synthetic_eq = STARTING_EQUITY
     for t in trades:
-        pnl = eq * 0.01 * t.get("return_pct", 0.0)
-        eq += pnl
-        t["_pnl"] = pnl
+        synthetic_pnl = synthetic_eq * 0.01 * t.get("return_pct", 0.0)
+        synthetic_eq += synthetic_pnl
+        t["_pnl"] = float(t.get("pnl", 0.0))
 
     returns = [t["return_pct"] for t in trades]
     wins = sum(1 for t in trades if t["_pnl"] > 0)
@@ -305,10 +308,17 @@ def evaluate(trades: list[dict]) -> dict:
         "daily_sortino": round(daily_sortino_ratio(daily_returns), 4),
         "max_drawdown": round(max_drawdown(equity_curve), 4),
         "starting_equity": STARTING_EQUITY,
-        "ending_equity": round(eq, 2),
-        "total_return_pct": round((eq - STARTING_EQUITY) / STARTING_EQUITY, 4),
-        "total_pnl": round(eq - STARTING_EQUITY, 2),
+        "ending_equity": round(ledger["ending_equity_actual"], 2),
+        "ending_equity_actual": round(ledger["ending_equity_actual"], 2),
+        "ending_equity_synthetic_1pct": round(synthetic_eq, 2),
+        "total_return_pct": round((ledger["ending_equity_actual"] - STARTING_EQUITY) / STARTING_EQUITY, 4),
+        "total_pnl": round(ledger["net_pnl"], 2),
         "exit_reasons": dict(sorted(exit_reasons.items(), key=lambda x: -x[1])),
+        **{
+            key: value
+            for key, value in ledger.items()
+            if key not in {"starting_equity", "ending_equity_actual", "ending_equity_synthetic_1pct", "exit_reasons"}
+        },
     }
 
 
@@ -364,7 +374,12 @@ def main() -> int:
     for strat in STRATEGIES:
         sname = strat["name"]
         metrics = evaluate(strat_trades[sname])
-        results[sname] = {"description": strat["desc"], "metrics": metrics, "args": strat["extra"]}
+        results[sname] = {
+            "description": strat["desc"],
+            "metrics": metrics,
+            "args": strat["extra"],
+            "resolved_cli_args": canonical_cli_args(BASE + strat["extra"]),
+        }
         ranked.append((sname, metrics))
         print(
             f"{sname:<30} {metrics['trades']:>6} {metrics['win_rate']:>7.2%} "

@@ -73,6 +73,31 @@ class VolumeBarSampler:
             return None
         return self._emit()
 
+    @property
+    def progress(self) -> float:
+        """Fraction of the current volume bar filled, capped at one."""
+        return min(1.0, self._volume / self.threshold_volume)
+
+    def partial_snapshot(self) -> VolumeBar | None:
+        """Return the observable state of the forming bar without emitting it."""
+        if self._ticks == 0:
+            return None
+        delta = self._buy_volume - self._sell_volume
+        return VolumeBar(
+            start_ts_ns=self._start_ts_ns,
+            end_ts_ns=self._end_ts_ns,
+            open=self._open,
+            high=self._high,
+            low=self._low,
+            close=self._close,
+            volume=round(self._volume, 8),
+            buy_volume=round(self._buy_volume, 8),
+            sell_volume=round(self._sell_volume, 8),
+            delta=round(delta, 8),
+            cumulative_delta=round(self._cumulative_delta + delta, 8),
+            ticks=self._ticks,
+        )
+
     def _emit(self) -> VolumeBar:
         delta = self._buy_volume - self._sell_volume
         self._cumulative_delta += delta

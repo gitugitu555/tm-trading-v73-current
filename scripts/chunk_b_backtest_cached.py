@@ -110,6 +110,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
     parser.add_argument("--starting-equity", type=float, default=None)
+    parser.add_argument("--fee-bps-per-side", type=float, default=5.0)
+    parser.add_argument("--slippage-bps-per-side", type=float, default=1.0)
     parser.add_argument("--trades-out", type=Path, default=None, help="Write all trades as JSON lines")
     parser.add_argument(
         "--scale-target-by-strength",
@@ -203,6 +205,15 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Use POC/VWAP/VAH/VAL signal-driven exits (lets trades run longer)",
     )
+    parser.add_argument("--disable-profile-poc-reclaim-exit", action="store_true")
+    parser.add_argument("--disable-profile-val-break-exit", action="store_true")
+    parser.add_argument("--disable-profile-vah-break-exit", action="store_true")
+    parser.add_argument("--disable-profile-hard-stop", action="store_true")
+    parser.add_argument("--profile-poc-reclaim-only", action="store_true")
+    parser.add_argument("--profile-exit-min-bars", type=int, default=0)
+    parser.add_argument("--profile-exit-min-profit-pct", type=float, default=0.003)
+    parser.add_argument("--profile-exit-require-cvd-confirm", action="store_true")
+    parser.add_argument("--profile-exit-require-pressure-confirm", action="store_true")
     parser.add_argument(
         "--min-entry-score",
         type=float,
@@ -326,6 +337,8 @@ def main() -> int:
         use_delta_rev_2_entry=args.use_delta_rev_2_entry,
         require_entry_delta_alignment=args.require_entry_delta_alignment,
         base_position_pct=args.base_position_pct,
+        fee_bps_per_side=args.fee_bps_per_side,
+        slippage_bps_per_side=args.slippage_bps_per_side,
     )
     uses_volume_bar_edge = (
         config.signal_mode == "divergence" and config.divergence_type == "volume_bar_cvd"
@@ -539,8 +552,28 @@ def main() -> int:
                     side=side,
                     profile=profile_snapshot,
                     vwap_deviation=vwap_dev,
-                    base_stop_pct=trade_stop_pct,
+                    base_stop_pct=0.0 if args.disable_profile_hard_stop else trade_stop_pct,
+                    min_profit_pct=args.profile_exit_min_profit_pct,
                 )
+                disabled_signals = {
+                    ExitSignal.POC_RECLAIMED: args.disable_profile_poc_reclaim_exit,
+                    ExitSignal.VAL_BREAK: args.disable_profile_val_break_exit,
+                    ExitSignal.VAH_BREAK: args.disable_profile_vah_break_exit,
+                    ExitSignal.HARD_STOP: args.disable_profile_hard_stop,
+                }
+                if disabled_signals.get(sig, False):
+                    sig = ExitSignal.NONE
+                if args.profile_poc_reclaim_only and sig != ExitSignal.POC_RECLAIMED:
+                    sig = ExitSignal.NONE
+                if open_trade.bars_since_entry < args.profile_exit_min_bars:
+                    sig = ExitSignal.NONE
+                cvd_adverse = (side > 0 and float(row.cvd_5m) < 0) or (side < 0 and float(row.cvd_5m) > 0)
+                pressure = float(mlofi_snapshot.mlofi_weighted_aggregate)
+                pressure_adverse = (side > 0 and pressure < 0) or (side < 0 and pressure > 0)
+                if args.profile_exit_require_cvd_confirm and not cvd_adverse:
+                    sig = ExitSignal.NONE
+                if args.profile_exit_require_pressure_confirm and not pressure_adverse:
+                    sig = ExitSignal.NONE
                 if sig != ExitSignal.NONE:
                     exit_reason = f"PROFILE_{sig.value}"
                     exit_price = close
