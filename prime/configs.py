@@ -83,8 +83,8 @@ class ChunkBBacktestConfig:
     footprint_confluence: FootprintConfluenceConfig = field(default_factory=FootprintConfluenceConfig)
 
     # Common
-    stop_pct: float = 0.0045
-    target_pct: float = 0.0025
+    stop_pct: float = 0.003
+    target_pct: float = 0.006
     use_tpsl: bool = True
     footprint_tick_size: float = 0.5
     footprint_warm_period: int = 100

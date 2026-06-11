@@ -21,7 +21,9 @@ from prime.chunk_b_trade_state import OpenTradeState
 from prime.phase4_minimal import HardRegimeClassifier, RegimeState
 from prime.phase5_chunkb import AlphaPermissionEngineChunkB
 from prime.performance import (
+    calendar_daily_returns,
     deflated_sharpe_probability,
+    infer_periods_per_year,
     kurtosis,
     sharpe_ratio,
     skewness,
@@ -57,6 +59,7 @@ CACHE_DIR = Path("results/indicator_cache")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    default_config = ChunkBBacktestConfig()
     parser.add_argument("--dest", type=Path, default=DEFAULT_DEST)
     parser.add_argument("--archive", default="BTCUSDT-aggTrades-2026-05-21.zip")
     parser.add_argument("--max-rows", type=int, default=None)
@@ -80,8 +83,8 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Enable the wall-clock hold timeout; disable for pure volume-bar horizon tests",
     )
-    parser.add_argument("--stop-pct", type=float, default=0.003)
-    parser.add_argument("--target-pct", type=float, default=0.006)
+    parser.add_argument("--stop-pct", type=float, default=default_config.stop_pct)
+    parser.add_argument("--target-pct", type=float, default=default_config.target_pct)
     parser.add_argument("--use-tpsl", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--use-vwap-gate", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--vwap-structure-pct", type=float, default=0.003)
@@ -1040,26 +1043,10 @@ def main() -> int:
     # Post backtest calculations
     returns = [trade.return_pct for trade in trades]
     
-    # Calculate daily equity and daily returns
-    daily_equity = {1: config.starting_equity} # dummy day 1 if no trades
-    if len(trades) > 0:
-        current_day = trades[0].exit_ts_ns // (24 * 3_600_000_000_000)
-        daily_equity = {current_day: config.starting_equity}
-        running_equity = config.starting_equity
-        for trade in trades:
-            day = trade.exit_ts_ns // (24 * 3_600_000_000_000)
-            running_equity += trade.pnl
-            daily_equity[day] = running_equity
-    
-    sorted_days = sorted(daily_equity.keys())
-    daily_returns = []
-    for i in range(1, len(sorted_days)):
-        prev_eq = daily_equity[sorted_days[i-1]]
-        curr_eq = daily_equity[sorted_days[i]]
-        if prev_eq > 0:
-            daily_returns.append((curr_eq - prev_eq) / prev_eq)
-        else:
-            daily_returns.append(0.0)
+    daily_returns = calendar_daily_returns(
+        [(trade.exit_ts_ns, trade.pnl) for trade in trades],
+        config.starting_equity,
+    )
 
     equity_curve = [config.starting_equity]
     running_eq = config.starting_equity
@@ -1070,9 +1057,14 @@ def main() -> int:
     adverse_list = [trade.max_adverse for trade in trades]
     favorable_list = [trade.max_favorable for trade in trades]
     total_pnl = sum(trade.pnl for trade in trades)
-    sharpe = sharpe_ratio(returns)
+    periods_per_year = infer_periods_per_year(
+        len(trades),
+        min((trade.entry_ts_ns for trade in trades), default=None),
+        max((trade.exit_ts_ns for trade in trades), default=None),
+    )
+    sharpe = sharpe_ratio(returns, periods_per_year=periods_per_year)
     d_sharpe = daily_sharpe_ratio(daily_returns)
-    sortino = sortino_ratio(returns)
+    sortino = sortino_ratio(returns, periods_per_year=periods_per_year)
     d_sortino = daily_sortino_ratio(daily_returns)
     mdd = max_drawdown(equity_curve)
     

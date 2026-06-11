@@ -4,6 +4,44 @@ from __future__ import annotations
 
 import math
 
+NS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1_000_000_000
+NS_PER_DAY = 24 * 60 * 60 * 1_000_000_000
+
+
+def infer_periods_per_year(
+    n_obs: int,
+    first_ts_ns: int | None,
+    last_ts_ns: int | None,
+    fallback: float = 365.0,
+) -> float:
+    """Infer observation frequency from the timestamp span."""
+    if n_obs < 2 or first_ts_ns is None or last_ts_ns is None or last_ts_ns <= first_ts_ns:
+        return fallback
+    span_years = (last_ts_ns - first_ts_ns) / NS_PER_YEAR
+    return n_obs / span_years if span_years > 0 else fallback
+
+
+def calendar_daily_returns(
+    timestamped_pnls: list[tuple[int, float]],
+    starting_equity: float,
+) -> list[float]:
+    """Build calendar-daily returns, including idle days and the first trade day."""
+    if not timestamped_pnls:
+        return []
+
+    pnl_by_day: dict[int, float] = {}
+    for ts_ns, pnl in timestamped_pnls:
+        day = ts_ns // NS_PER_DAY
+        pnl_by_day[day] = pnl_by_day.get(day, 0.0) + pnl
+
+    equity = starting_equity
+    returns: list[float] = []
+    for day in range(min(pnl_by_day), max(pnl_by_day) + 1):
+        pnl = pnl_by_day.get(day, 0.0)
+        returns.append(pnl / equity if equity > 0 else 0.0)
+        equity += pnl
+    return returns
+
 
 def sharpe_ratio(returns: list[float], periods_per_year: float = 365.0) -> float:
     if len(returns) < 2:
@@ -155,4 +193,3 @@ def max_drawdown(equity_curve: list[float]) -> float:
         if dd > max_dd:
             max_dd = dd
     return max_dd
-
