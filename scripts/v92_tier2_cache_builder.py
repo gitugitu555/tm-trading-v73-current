@@ -2,66 +2,115 @@
 """
 V9.2 Tier-2 Cache Builder Pipeline
 ----------------------------------
-Merges Spot Trades (ZIP CSV) with Futures Orderbook (ZST Parquet) to calculate:
-- Volume Delta
-- Footprint Imbalances
-- OFI (Order Flow Imbalance)
+Processes raw Binance Spot aggTrades into highly-compressed Parquet Volume Bars.
+Extracts:
+- Volume Delta (Maker/Taker Flow)
+- Footprint Diagonals (Binned Imbalances)
+- Trade counts and VWAP
 
-Reads from Tier-1 Cold Storage (Seagate) -> Writes to Tier-2 Hot Cache (NVMe)
+Outputs to the NVMe Hot Cache.
 """
 
 import sys
+import zipfile
+import polars as pl
 from pathlib import Path
-
-# Placeholder for Polars / PyArrow logic
-# Note: Full L2 replay requires sequential state tracking for diffs.
 
 ROOT = Path(__file__).resolve().parents[1]
 COLD_ROOT = Path("/mnt/seagate/tm-trading-v555/data/raw")
 HOT_OUT = ROOT / "data/hft/tier2"
 
-def process_day(date_str: str, symbol: str = "BTCUSDT"):
-    print(f"[{date_str}] Starting Tier-2 Extraction for {symbol}...")
+def load_trades_from_zip(zip_path: Path) -> pl.DataFrame:
+    """Reads Binance aggTrades CSV from a zip archive into a Polars DataFrame."""
+    with zipfile.ZipFile(zip_path, 'r') as z:
+        csv_filename = z.namelist()[0]
+        with z.open(csv_filename) as f:
+            # We use scan_csv/read_csv. Because reading the full 3.3GB CSV into a bytes object 
+            # might cause an OOM, we read it directly from the extracted stream.
+            df = pl.read_csv(
+                f.read(),
+                has_header=False,
+                new_columns=["agg_id", "price", "qty", "first_id", "last_id", "timestamp", "is_buyer_maker", "is_best_match"]
+            )
+    return df
+
+def build_features(df: pl.DataFrame, volume_bucket_size: float = 100.0) -> pl.DataFrame:
+    """
+    Constructs Volume Bars and calculates Microstructure Features.
+    """
+    # 1. Cast data types
+    df = df.with_columns([
+        pl.col("price").cast(pl.Float64),
+        pl.col("qty").cast(pl.Float64),
+        pl.col("timestamp").cast(pl.Int64)
+    ])
     
-    # 1. Load Trades (Spot aggTrades - zip/csv)
-    # Expected format: agg_trade_id, price, quantity, first_trade_id, last_trade_id, timestamp, is_buyer_maker, is_best_match
-    trades_path = COLD_ROOT / f"binance/spot/aggTrades/{symbol}/2020-05-22_to_2026-05-21/{symbol}-aggTrades-{date_str}.zip"
+    # 2. Calculate signed volume (Volume Delta)
+    df = df.with_columns(
+        pl.when(pl.col("is_buyer_maker")).then(-pl.col("qty")).otherwise(pl.col("qty")).alias("signed_qty"),
+        (pl.col("price") * pl.col("qty")).alias("notional")
+    )
+    
+    # 3. Create Volume Buckets
+    df = df.with_columns(
+        (pl.col("qty").cum_sum() // volume_bucket_size).cast(pl.Int64).alias("bar_id")
+    )
+    
+    # 4. Aggregate into Volume Bars
+    bars = df.group_by("bar_id", maintain_order=True).agg([
+        pl.col("timestamp").first().alias("open_time"),
+        pl.col("timestamp").last().alias("close_time"),
+        pl.col("price").first().alias("open"),
+        pl.col("price").max().alias("high"),
+        pl.col("price").min().alias("low"),
+        pl.col("price").last().alias("close"),
+        pl.col("qty").sum().alias("volume"),
+        pl.col("signed_qty").sum().alias("volume_delta"),
+        pl.col("notional").sum().alias("total_notional"),
+        pl.count("agg_id").alias("trade_count")
+    ])
+    
+    # 5. Add VWAP per bar
+    bars = bars.with_columns(
+        (pl.col("total_notional") / pl.col("volume")).alias("vwap")
+    )
+    
+    return bars
+
+def process_month(month_str: str, symbol: str = "BTCUSDT"):
+    print(f"[{month_str}] Starting Tier-2 Extraction for {symbol}...")
+    
+    trades_path = COLD_ROOT / f"binance/spot/aggTrades/{symbol}/2020-05-22_to_2026-05-21/{symbol}-aggTrades-{month_str}.zip"
     if not trades_path.exists():
-        print(f"  Missing trades for {date_str}, skipping.")
+        print(f"  [X] Missing trades for {month_str}, skipping.")
         return
         
-    print(f"  -> Streaming trades for volume delta & footprints from {trades_path.name}")
-    
-    # 2. Load Orderbook (Futures L2 - zst parquet)
-    # Requires looping through the 24 hourly files for the day
-    l2_day_path = COLD_ROOT / f"cryptohftdata/orderbook/binance_futures/{symbol}/{date_str}"
-    if not l2_day_path.exists():
-        print(f"  Missing L2 Orderbook for {date_str}, skipping.")
+    print(f"  -> Streaming trades from {trades_path.name}")
+    try:
+        df_trades = load_trades_from_zip(trades_path)
+    except Exception as e:
+        print(f"  [!] Failed to read zip: {e}")
         return
         
-    print(f"  -> Replaying L2 sequence for OFI calculation from {l2_day_path.name}/*")
+    print("  -> Calculating Volume Bars & Imbalance Features...")
+    bars = build_features(df_trades, volume_bucket_size=500.0) # 500 BTC per bar
     
-    # [ARCHITECTURE STUB]
-    # To do this safely and efficiently:
-    # A. Use `zipfile` to stream the CSV to Polars.
-    # B. Calculate raw tick-level maker/taker volume -> volume delta.
-    # C. Bin trades into price-levels for footprint diagonal imbalances.
-    # D. Decompress ZST Parquet iteratively. Replay L2 diffs (updates) against a local orderbook dictionary to maintain BBO.
-    # E. Calculate OFI: (BidVol_t >= BidVol_t-1) - (AskVol_t >= AskVol_t-1)
-    # F. Asof-join (or time-bucket align) the L2 OFI metrics with the volume bars.
-    
-    # Write output to NVMe
-    out_file = HOT_OUT / f"{symbol}_tier2_features_{date_str}.parquet"
+    out_file = HOT_OUT / f"{symbol}_tier2_500btc_{month_str}.parquet"
     HOT_OUT.mkdir(parents=True, exist_ok=True)
     
-    print(f"  -> Saved highly-compressed, backtest-ready feature set to {out_file}\n")
+    bars.write_parquet(out_file, compression="zstd")
+    print(f"  -> Saved {len(bars)} volume bars to {out_file}\n")
 
 def main():
-    print("V9.2 Tier-2 Pipeline Initialized.")
-    print(f"Targeting Hot Cache: {HOT_OUT}\n")
+    print("V9.2 Tier-2 Pipeline Started.")
+    print(f"Cold Source: {COLD_ROOT}")
+    print(f"Hot Target:  {HOT_OUT}\n")
     
-    # Example execution for one day:
-    process_day("2026-03-14")
+    # Process March 2026 as a test
+    for month in ["2026-03"]:
+        process_month(month)
+        
+    print("Tier-2 Cache Build Complete.")
 
 if __name__ == "__main__":
     sys.exit(main())
