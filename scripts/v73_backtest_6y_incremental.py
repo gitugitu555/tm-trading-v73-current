@@ -17,7 +17,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from prime.performance import deflated_sharpe_probability, kurtosis, sharpe_ratio, skewness
+from prime.chunk_b_backtest import ChunkBBacktestConfig
+from prime.performance import (
+    deflated_sharpe_probability,
+    infer_periods_per_year,
+    kurtosis,
+    sharpe_ratio,
+    skewness,
+)
 from research.promotion_summary import build_promotion_summary, load_json
 from research.mae_mfe_exit_lab import MAEMFEExitLab
 from research.trade_path_db import TradePathDatabase
@@ -29,8 +36,9 @@ DEFAULT_WORK_DIR = ROOT / "results/v73_backtest_6y_work"
 THRESHOLD = 300.0
 LOOKBACK = 40
 EXIT_BARS = 16
-STOP_PCT = 0.03
-TARGET_PCT = 0.004
+DEFAULT_CONFIG = ChunkBBacktestConfig()
+STOP_PCT = DEFAULT_CONFIG.stop_pct
+TARGET_PCT = DEFAULT_CONFIG.target_pct
 
 
 def _maybe_float(value: object) -> float | None:
@@ -303,7 +311,12 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
 
     returns = [t["return_pct"] for t in all_trades]
     pnls = [t["pnl"] for t in all_trades]
-    sharpe = sharpe_ratio(returns)
+    periods_per_year = infer_periods_per_year(
+        len(all_trades),
+        min((int(t["entry_ts_ns"]) for t in all_trades), default=None),
+        max((int(t["exit_ts_ns"]) for t in all_trades), default=None),
+    )
+    sharpe = sharpe_ratio(returns, periods_per_year=periods_per_year)
     dsr = deflated_sharpe_probability(
         sharpe=sharpe,
         n_trials=4,
@@ -380,6 +393,7 @@ def merge_reports(archive_reports: list[dict], all_trades: list[dict]) -> dict:
             "trades": len(all_trades),
             "win_rate": round(wins / len(all_trades), 4) if all_trades else 0.0,
             "total_pnl": round(sum(pnls), 2),
+            "trades_per_year": round(periods_per_year, 2) if all_trades else 0.0,
         },
         "entry_lag_bars": (
             archive_reports[0]["report"].get("entry_lag_bars", 0) if archive_reports else 0

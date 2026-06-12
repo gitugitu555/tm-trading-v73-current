@@ -186,3 +186,46 @@ The fastest way to make the backtest surface statistically coherent is:
 2. fix Sharpe annualization
 3. rebuild calendar-daily returns
 4. move parameter experiments onto a separate branch
+
+## Combined Review and Implemented Solution
+
+Claude's follow-up correctly identified the three main areas that need attention:
+
+- per-trade Sharpe and Sortino were annualized with a fixed `365`
+- daily returns were built from active exit days rather than calendar days
+- stop/target defaults drifted between the typed config, legacy config, cached runner, and six-year runner
+
+One part of the explanation needs correction.
+
+For a fixed per-trade mean and standard deviation, increasing `periods_per_year` increases the absolute annualized Sharpe because the formula multiplies by `sqrt(periods_per_year)`.
+
+Therefore:
+
+- a positive Sharpe becomes more positive when corrected from `365` to a higher trade frequency
+- a negative Sharpe becomes more negative
+- this is an annualization correction, not a claim that each trade has less statistical weight
+
+The daily-return defect was also slightly worse than initially described. The old implementation omitted idle days and omitted the first trading day's return from the daily series.
+
+The parameter-test branch implements the following measurement fixes:
+
+- `infer_periods_per_year()` derives observation frequency from the actual trade timestamp span
+- `calendar_daily_returns()` includes the first trading day and every idle day between the first and last exit
+- typed and cached backtest paths use actual trade frequency for per-trade Sharpe and Sortino
+- the six-year merger uses actual trade frequency and reports `trades_per_year`
+- cached and six-year runner stop/target defaults now inherit from the typed `ChunkBBacktestConfig`
+- the legacy config is aligned to the existing typed `0.30%` stop / `0.60%` target baseline
+
+This branch intentionally does not claim that `0.30% / 0.60%` is profitable. It makes that configuration the coherent baseline to test.
+
+The existing DSR helper remains an approximate implementation. Correcting the Sharpe input removes one known inconsistency, but DSR should still be independently audited before it is used as a hard promotion gate.
+
+The next valid experiment is a controlled comparison using the same immutable data and execution assumptions:
+
+1. `target=0.45%`, `stop=0.30%`
+2. `target=0.60%`, `stop=0.30%`
+3. `lookback=30`, `exit_after_volume_bars=24`
+4. volume-bar CVD signal mode
+5. corrected Sharpe, Sortino, DSR input, and calendar-daily metrics
+
+No result from that comparison should be promoted unless it remains positive after explicit costs and chronological walk-forward validation.

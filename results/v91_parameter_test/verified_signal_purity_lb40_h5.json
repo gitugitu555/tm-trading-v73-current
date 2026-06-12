@@ -1,0 +1,317 @@
+{
+  "catalog": {
+    "bar_count": 509147,
+    "catalog_hash": "234617593ff6f697e1a584b88b6f8b1b9ee1bd2a8cc2e0b314bb3e8aca4a7233",
+    "catalog_manifest_hash": "6361d90d275d9658ca6bda1e102a82d039073ae6c11dd96178f72be2396b0ef9",
+    "end_iso": "2026-05-21T22:37:16.620649+00:00",
+    "path": "results/v89_data_foundation/catalog/BTCUSDT_volume_bars_2020-05-22_2026-05-21_threshold300.parquet",
+    "start_iso": "2020-05-22T00:00:00.125000+00:00"
+  },
+  "config": {
+    "entry_reference": "signal_bar_close",
+    "exit_reference": "close_5_bars_later",
+    "horizon_bars": 5,
+    "htf_flat_quantile": 0.25,
+    "lookback_bars": 40,
+    "past_only_rolling_window": 2000,
+    "position_occupancy": false,
+    "trade_exit_logic": false
+  },
+  "legacy_global_flat_abs_threshold": 75.76899299997604,
+  "modes": {
+    "d4_legacy_global_quantile": {
+      "by_side": {
+        "long": {
+          "events": 8022,
+          "hit_rate": 0.5380204437796061,
+          "hits": 4316,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 5.378565012670048,
+          "mean_signed_forward_return": 0.0002957760116985215,
+          "mean_signed_forward_return_bps": 2.957760116985215
+        },
+        "short": {
+          "events": 13969,
+          "hit_rate": 0.5230152480492519,
+          "hits": 7306,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 4.80508098065302,
+          "mean_signed_forward_return": 0.00019074718116373067,
+          "mean_signed_forward_return_bps": 1.9074718116373068
+        }
+      },
+      "by_year": {
+        "2020": {
+          "events": 2229,
+          "hit_rate": 0.5208613728129206,
+          "hits": 1161,
+          "ic": 0.0876413955670027,
+          "mean_sfr_t_stat": 1.2932028426438291,
+          "mean_signed_forward_return": 0.00012176390927712882,
+          "mean_signed_forward_return_bps": 1.2176390927712881
+        },
+        "2021": {
+          "events": 4941,
+          "hit_rate": 0.5343047965998786,
+          "hits": 2640,
+          "ic": 0.0768868773358165,
+          "mean_sfr_t_stat": 6.11903761857231,
+          "mean_signed_forward_return": 0.0005921291898006577,
+          "mean_signed_forward_return_bps": 5.921291898006577
+        },
+        "2022": {
+          "events": 7125,
+          "hit_rate": 0.5400701754385965,
+          "hits": 3848,
+          "ic": 0.05459037957050512,
+          "mean_sfr_t_stat": 4.602974437334734,
+          "mean_signed_forward_return": 0.00019653194112873685,
+          "mean_signed_forward_return_bps": 1.9653194112873684
+        },
+        "2023": {
+          "events": 4423,
+          "hit_rate": 0.5358354058331449,
+          "hits": 2370,
+          "ic": 0.037822898071810065,
+          "mean_sfr_t_stat": 1.614596260304123,
+          "mean_signed_forward_return": 6.16034700229799e-05,
+          "mean_signed_forward_return_bps": 0.616034700229799
+        },
+        "2024": {
+          "events": 1601,
+          "hit_rate": 0.49531542785758903,
+          "hits": 793,
+          "ic": 0.019353087542515916,
+          "mean_sfr_t_stat": 0.2700503342752271,
+          "mean_signed_forward_return": 3.689383129023337e-05,
+          "mean_signed_forward_return_bps": 0.36893831290233375
+        },
+        "2025": {
+          "events": 1282,
+          "hit_rate": 0.484399375975039,
+          "hits": 621,
+          "ic": 0.002016863791057202,
+          "mean_sfr_t_stat": 0.4450946701203607,
+          "mean_signed_forward_return": 6.901605518185231e-05,
+          "mean_signed_forward_return_bps": 0.6901605518185231
+        },
+        "2026": {
+          "events": 390,
+          "hit_rate": 0.4846153846153846,
+          "hits": 189,
+          "ic": 0.007068829774759748,
+          "mean_sfr_t_stat": 0.13898362694880625,
+          "mean_signed_forward_return": 5.085288165442342e-05,
+          "mean_signed_forward_return_bps": 0.5085288165442342
+        }
+      },
+      "overall": {
+        "events": 21991,
+        "hit_rate": 0.5284889272884362,
+        "hits": 11622,
+        "ic": 0.048955982666288325,
+        "mean_sfr_t_stat": 7.108569050849013,
+        "mean_signed_forward_return": 0.00022906018550869261,
+        "mean_signed_forward_return_bps": 2.2906018550869263
+      }
+    },
+    "d4_past_only_rolling": {
+      "by_side": {
+        "long": {
+          "events": 8065,
+          "hit_rate": 0.5427154370737756,
+          "hits": 4377,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 5.893010655155477,
+          "mean_signed_forward_return": 0.00031591674999623484,
+          "mean_signed_forward_return_bps": 3.1591674999623485
+        },
+        "short": {
+          "events": 13951,
+          "hit_rate": 0.5244068525553723,
+          "hits": 7316,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 4.979835104379376,
+          "mean_signed_forward_return": 0.00019445342184464085,
+          "mean_signed_forward_return_bps": 1.9445342184464085
+        }
+      },
+      "by_year": {
+        "2020": {
+          "events": 2289,
+          "hit_rate": 0.5159458278724334,
+          "hits": 1181,
+          "ic": 0.08178647488741522,
+          "mean_sfr_t_stat": 1.1475769319458347,
+          "mean_signed_forward_return": 0.00010846708741381973,
+          "mean_signed_forward_return_bps": 1.0846708741381974
+        },
+        "2021": {
+          "events": 4874,
+          "hit_rate": 0.5369306524415265,
+          "hits": 2617,
+          "ic": 0.08322949008816467,
+          "mean_sfr_t_stat": 6.5336806684908035,
+          "mean_signed_forward_return": 0.0006412326092005631,
+          "mean_signed_forward_return_bps": 6.412326092005631
+        },
+        "2022": {
+          "events": 7540,
+          "hit_rate": 0.5404509283819628,
+          "hits": 4075,
+          "ic": 0.050484337478752764,
+          "mean_sfr_t_stat": 4.268126943596782,
+          "mean_signed_forward_return": 0.00017258263054997178,
+          "mean_signed_forward_return_bps": 1.7258263054997178
+        },
+        "2023": {
+          "events": 4678,
+          "hit_rate": 0.5382642154766994,
+          "hits": 2518,
+          "ic": 0.04408939438705741,
+          "mean_sfr_t_stat": 2.2544253014253206,
+          "mean_signed_forward_return": 8.011482668779737e-05,
+          "mean_signed_forward_return_bps": 0.8011482668779737
+        },
+        "2024": {
+          "events": 1380,
+          "hit_rate": 0.5007246376811594,
+          "hits": 691,
+          "ic": 0.03088657647511268,
+          "mean_sfr_t_stat": 0.7170206582009274,
+          "mean_signed_forward_return": 0.00010453899110275762,
+          "mean_signed_forward_return_bps": 1.0453899110275762
+        },
+        "2025": {
+          "events": 969,
+          "hit_rate": 0.4850361197110423,
+          "hits": 470,
+          "ic": 0.0035119484665265244,
+          "mean_sfr_t_stat": 0.34136935178507655,
+          "mean_signed_forward_return": 6.152280601072264e-05,
+          "mean_signed_forward_return_bps": 0.6152280601072264
+        },
+        "2026": {
+          "events": 286,
+          "hit_rate": 0.493006993006993,
+          "hits": 141,
+          "ic": 0.0017800792661352139,
+          "mean_sfr_t_stat": 0.0567650645908414,
+          "mean_signed_forward_return": 2.4859357349410076e-05,
+          "mean_signed_forward_return_bps": 0.24859357349410077
+        }
+      },
+      "overall": {
+        "events": 22016,
+        "hit_rate": 0.5311137354651163,
+        "hits": 11693,
+        "ic": 0.052391200484675,
+        "mean_sfr_t_stat": 7.5636796676716145,
+        "mean_signed_forward_return": 0.0002389484137388346,
+        "mean_signed_forward_return_bps": 2.389484137388346
+      }
+    },
+    "divergence_unfiltered": {
+      "by_side": {
+        "long": {
+          "events": 21367,
+          "hit_rate": 0.5348434501801844,
+          "hits": 11428,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 8.7235480684016,
+          "mean_signed_forward_return": 0.0003054041791144598,
+          "mean_signed_forward_return_bps": 3.054041791144598
+        },
+        "short": {
+          "events": 30384,
+          "hit_rate": 0.51365850447604,
+          "hits": 15607,
+          "ic": 0.0,
+          "mean_sfr_t_stat": 3.6724077351926216,
+          "mean_signed_forward_return": 9.819370644323862e-05,
+          "mean_signed_forward_return_bps": 0.9819370644323863
+        }
+      },
+      "by_year": {
+        "2020": {
+          "events": 4977,
+          "hit_rate": 0.5344585091420534,
+          "hits": 2660,
+          "ic": 0.09188663829220443,
+          "mean_sfr_t_stat": 3.9013775186402415,
+          "mean_signed_forward_return": 0.00025324684592834565,
+          "mean_signed_forward_return_bps": 2.5324684592834563
+        },
+        "2021": {
+          "events": 10173,
+          "hit_rate": 0.5303253710803106,
+          "hits": 5395,
+          "ic": 0.08935226770267089,
+          "mean_sfr_t_stat": 8.657775175198749,
+          "mean_signed_forward_return": 0.0005977742532856435,
+          "mean_signed_forward_return_bps": 5.977742532856435
+        },
+        "2022": {
+          "events": 16860,
+          "hit_rate": 0.5233689205219454,
+          "hits": 8824,
+          "ic": 0.021087063336015427,
+          "mean_sfr_t_stat": 2.771765857489142,
+          "mean_signed_forward_return": 7.641254402541274e-05,
+          "mean_signed_forward_return_bps": 0.7641254402541274
+        },
+        "2023": {
+          "events": 11012,
+          "hit_rate": 0.5319651289502361,
+          "hits": 5858,
+          "ic": 0.028900428057243802,
+          "mean_sfr_t_stat": 2.3002084491707695,
+          "mean_signed_forward_return": 6.309923466237604e-05,
+          "mean_signed_forward_return_bps": 0.6309923466237604
+        },
+        "2024": {
+          "events": 4640,
+          "hit_rate": 0.5064655172413793,
+          "hits": 2350,
+          "ic": 0.03066564067141703,
+          "mean_sfr_t_stat": 1.5091786134047762,
+          "mean_signed_forward_return": 0.0001262312380565486,
+          "mean_signed_forward_return_bps": 1.262312380565486
+        },
+        "2025": {
+          "events": 3109,
+          "hit_rate": 0.4692827275651335,
+          "hits": 1459,
+          "ic": -0.042504561175096,
+          "mean_sfr_t_stat": -2.040212976891293,
+          "mean_signed_forward_return": -0.00021845402633331265,
+          "mean_signed_forward_return_bps": -2.1845402633331266
+        },
+        "2026": {
+          "events": 980,
+          "hit_rate": 0.4989795918367347,
+          "hits": 489,
+          "ic": 0.03766751127753048,
+          "mean_sfr_t_stat": 1.2281032909602825,
+          "mean_signed_forward_return": 0.0002834877548644368,
+          "mean_signed_forward_return_bps": 2.8348775486443683
+        }
+      },
+      "overall": {
+        "events": 51751,
+        "hit_rate": 0.5224053641475527,
+        "hits": 27035,
+        "ic": 0.04089998158478077,
+        "mean_sfr_t_stat": 8.608782174555722,
+        "mean_signed_forward_return": 0.0001837469550677284,
+        "mean_signed_forward_return_bps": 1.837469550677284
+      }
+    }
+  },
+  "notes": [
+    "No TP/SL, fees, slippage, position occupancy, entry lag, or trade-exit logic is used.",
+    "Legacy D4 uses a full-history HTF quantile and is reported only to reproduce the old diagnostic.",
+    "Past-only D4 uses the prior 2,000 HTF changes and excludes the current observation.",
+    "Year attribution uses the UTC year of the signal bar; forward returns may cross year boundaries."
+  ]
+}

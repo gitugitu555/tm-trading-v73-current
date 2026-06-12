@@ -10,7 +10,9 @@ from typing import Iterable
 from prime.contracts import DataQualitySnapshot
 from prime.nautilus_compat import TradeTick
 from prime.performance import (
+    calendar_daily_returns,
     deflated_sharpe_probability,
+    infer_periods_per_year,
     kurtosis,
     sharpe_ratio,
     skewness,
@@ -320,26 +322,10 @@ class ChunkBBacktester:
 
         returns = [trade.return_pct for trade in trades]
         
-        # Calculate daily equity and daily returns
-        daily_equity = {1: self.config.starting_equity} # dummy day 1 if no trades
-        if len(trades) > 0:
-            current_day = trades[0].exit_ts_ns // (24 * 3_600_000_000_000)
-            daily_equity = {current_day: self.config.starting_equity}
-            running_equity = self.config.starting_equity
-            for trade in trades:
-                day = trade.exit_ts_ns // (24 * 3_600_000_000_000)
-                running_equity += trade.pnl
-                daily_equity[day] = running_equity
-        
-        sorted_days = sorted(daily_equity.keys())
-        daily_returns = []
-        for i in range(1, len(sorted_days)):
-            prev_eq = daily_equity[sorted_days[i-1]]
-            curr_eq = daily_equity[sorted_days[i]]
-            if prev_eq > 0:
-                daily_returns.append((curr_eq - prev_eq) / prev_eq)
-            else:
-                daily_returns.append(0.0)
+        daily_returns = calendar_daily_returns(
+            [(trade.exit_ts_ns, trade.pnl) for trade in trades],
+            self.config.starting_equity,
+        )
 
         equity_curve = [self.config.starting_equity]
         running_eq = self.config.starting_equity
@@ -350,9 +336,14 @@ class ChunkBBacktester:
         adverse_list = [trade.max_adverse for trade in trades]
         favorable_list = [trade.max_favorable for trade in trades]
         total_pnl = sum(trade.pnl for trade in trades)
-        sharpe = sharpe_ratio(returns)
+        periods_per_year = infer_periods_per_year(
+            len(trades),
+            min((trade.entry_ts_ns for trade in trades), default=None),
+            max((trade.exit_ts_ns for trade in trades), default=None),
+        )
+        sharpe = sharpe_ratio(returns, periods_per_year=periods_per_year)
         d_sharpe = daily_sharpe_ratio(daily_returns)
-        sortino = sortino_ratio(returns)
+        sortino = sortino_ratio(returns, periods_per_year=periods_per_year)
         d_sortino = daily_sortino_ratio(daily_returns)
         mdd = max_drawdown(equity_curve)
         
